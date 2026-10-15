@@ -177,6 +177,7 @@
   // b is a booking or a PNR. Offline, the ticket comes from the saved copy (MG.tickets)
   // and cancelling is hidden since it needs the server.
   MG.showTicket = async (b, opts = {}) => {
+    if (opts.fresh) MG.sound("success");
     const offline = opts.offline ?? MG.isOffline();
     const pnr = typeof b === "string" ? b : b && b.pnr;
     if (offline || typeof b === "string") b = (await MG.tickets.get(pnr)) || (typeof b === "string" ? null : b);

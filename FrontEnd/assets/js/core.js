@@ -170,11 +170,32 @@
 
   MG.offlineNotice = () => `<div class="notice offline">${MG.icon("offline")}<span>Offline — showing saved tickets</span></div>`;
 
+  // Profile: the copy from the last page paints instantly (sessionStorage),
+  // then a fresh one follows and is announced as "mg:me" so headers update.
   let mePromise = null;
-  MG.me = (fresh) => {
-    if (!mePromise || fresh) mePromise = MG.api("/profile").then(r => (r.success ? r.data : null));
-    return mePromise;
+  const ME_KEY = "mg-me";
+  const store = {
+    get() { try { return JSON.parse(sessionStorage.getItem(ME_KEY)); } catch (e) { return null; } },
+    set(u) { try { u ? sessionStorage.setItem(ME_KEY, JSON.stringify(u)) : sessionStorage.removeItem(ME_KEY); } catch (e) { /* storage blocked */ } },
   };
+  MG.me = (fresh) => {
+    if (mePromise && !fresh) return mePromise;
+    const network = MG.api("/profile").then(r => {
+      const u = r.success ? r.data : null;
+      store.set(u);
+      document.dispatchEvent(new CustomEvent("mg:me", { detail: u }));
+      return u;
+    });
+    const cached = !fresh && store.get();
+    if (!cached) return (mePromise = network);
+    network.then(u => { mePromise = Promise.resolve(u); }, () => {});
+    return (mePromise = Promise.resolve(cached));
+  };
+  // A different account must never see the previous one's cached profile
+  if (/\/login\.html$/.test(location.pathname)) store.set(null);
+  document.addEventListener("click", e => {
+    if (e.target.closest && e.target.closest('a[href="/logout"]')) store.set(null);
+  }, true);
   MG.displayName = u => (u && (u.name || u.email.split("@")[0])) || "Rider";
 
   // ---------- Shell: bottom tab bar ----------
@@ -202,16 +223,130 @@
       </div>`;
     document.body.appendChild(bar);
     MG.$$("[data-theme-toggle]").forEach(MG.theme.bind);
-    MG.me().then(u => {
+    const paintUser = u => {
       if (!u) return;
       MG.$("#tbAvatar").textContent = MG.displayName(u)[0].toUpperCase();
       MG.$("#tbName").textContent = MG.displayName(u);
       MG.$("#tbBal").textContent = `Metro Card · ${MG.rupee(u.cardBalance)}`;
-    }).catch(() => {});
+    };
+    MG.me().then(paintUser).catch(() => {});
+    document.addEventListener("mg:me", e => paintUser(e.detail));
   };
 
   // True when the desktop layout (sidebar, side-by-side panels) is active
   MG.desk = window.matchMedia("(min-width: 1024px)");
+
+  // ---------- Touch sounds + haptics ----------
+  // Soft, short synthesized sounds (Web Audio, no files): rounded "tock"s
+  // that match the soft, pressed-in surfaces. Android also gets a tiny
+  // vibration. On iPhone the ring/silent switch mutes them. Toggle in Profile.
+  const SOUND_KEY = "mg-sound";
+  let audio = null;
+
+  MG.soundOn = () => { try { return localStorage.getItem(SOUND_KEY) !== "off"; } catch (e) { return true; } };
+  MG.setSound = on => {
+    try { localStorage.setItem(SOUND_KEY, on ? "on" : "off"); } catch (e) { /* storage blocked */ }
+    if (on) MG.sound("select");
+  };
+
+  function ctx() {
+    if (!audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audio = new AC();
+    }
+    if (audio.state === "suspended") audio.resume();
+    return audio;
+  }
+
+  // One soft tone: frequency glide, quick attack, smooth decay, lowpassed
+  function tone(ac, { at = 0, freq, to, dur, gain, type = "sine", cutoff = 3000 }) {
+    const t = ac.currentTime + at;
+    const osc = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (to) osc.frequency.exponentialRampToValueAtTime(to, t + dur);
+    lp.type = "lowpass";
+    lp.frequency.value = cutoff;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(lp).connect(g).connect(ac.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+
+  // A breath of filtered noise (sheet slide, page change)
+  function air(ac, { at = 0, dur, gain, from, to }) {
+    const t = ac.currentTime + at;
+    const len = Math.ceil(ac.sampleRate * dur);
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = buf;
+    bp.type = "bandpass";
+    bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(from, t);
+    bp.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.3);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp).connect(g).connect(ac.destination);
+    src.start(t);
+  }
+
+  const SOUNDS = {
+    tap: ac => tone(ac, { freq: 820, to: 560, dur: 0.05, gain: 0.05, type: "triangle", cutoff: 2400 }),
+    key: ac => tone(ac, { freq: 1150, to: 880, dur: 0.035, gain: 0.04, type: "triangle", cutoff: 3200 }),
+    press: ac => {
+      tone(ac, { freq: 420, to: 300, dur: 0.08, gain: 0.08 });
+      tone(ac, { freq: 1300, to: 900, dur: 0.025, gain: 0.025, type: "triangle" });
+    },
+    select: ac => {
+      tone(ac, { freq: 660, dur: 0.045, gain: 0.04, type: "triangle", cutoff: 2600 });
+      tone(ac, { at: 0.04, freq: 990, dur: 0.06, gain: 0.035, type: "triangle", cutoff: 2600 });
+    },
+    nav: ac => {
+      air(ac, { dur: 0.09, gain: 0.03, from: 900, to: 2200 });
+      tone(ac, { freq: 520, to: 700, dur: 0.07, gain: 0.04 });
+    },
+    sheet: ac => air(ac, { dur: 0.14, gain: 0.025, from: 400, to: 1600 }),
+    success: ac => {
+      tone(ac, { freq: 659, dur: 0.22, gain: 0.07 });
+      tone(ac, { at: 0.09, freq: 988, dur: 0.32, gain: 0.06 });
+      tone(ac, { at: 0.09, freq: 1976, dur: 0.18, gain: 0.012 });
+    },
+    error: ac => {
+      tone(ac, { freq: 300, to: 260, dur: 0.09, gain: 0.06, type: "triangle", cutoff: 1200 });
+      tone(ac, { at: 0.1, freq: 240, to: 200, dur: 0.12, gain: 0.06, type: "triangle", cutoff: 1200 });
+    },
+  };
+  const BUZZ = { tap: 6, key: 5, press: 10, select: 8, nav: 8, success: [12, 50, 18], error: [25, 40, 25] };
+
+  MG.sound = (name) => {
+    if (!MG.soundOn() || document.visibilityState !== "visible") return;
+    const ac = ctx();
+    if (ac && SOUNDS[name]) { try { SOUNDS[name](ac); } catch (e) { /* audio unavailable */ } }
+    // Browsers only allow vibration after the user has touched the page
+    const touched = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+    if (BUZZ[name] && navigator.vibrate && touched) { try { navigator.vibrate(BUZZ[name]); } catch (e) { /* not allowed */ } }
+  };
+
+  // Pick the sound from what was touched; pointerdown so it plays on contact
+  function soundFor(el) {
+    if (el.closest(".tabbar") && el.matches(".tb-item, .tb-brand")) return "nav";
+    if (el.matches(".seat")) return "key";
+    if (el.matches(".seg button, .pay-method, .amounts button, .cal-grid button, .save, [data-fav], [data-slot]")) return "select";
+    if (el.matches(".btn:not(.ghost), .pill, .tb-book, .swap")) return "press";
+    return "tap";
+  }
+  document.addEventListener("pointerdown", e => {
+    if (e.button > 0 || !e.isPrimary) return;
+    const el = e.target.closest && e.target.closest("a[href], button, summary, [role=button], .seat");
+    if (!el || el.disabled || el.getAttribute("aria-disabled") === "true") return;
+    MG.sound(soundFor(el));
+  }, { capture: true, passive: true });
 
   // ---------- Toast ----------
   let toastEl, toastTimer;
@@ -223,6 +358,7 @@
       document.body.appendChild(toastEl);
     }
     toastEl.className = "toast" + (kind === "bad" ? " bad" : "");
+    if (kind === "bad") MG.sound("error");
     toastEl.innerHTML = MG.icon(kind === "bad" ? "info" : "check") + `<span>${MG.esc(msg)}</span>`;
     requestAnimationFrame(() => toastEl.classList.add("show"));
     clearTimeout(toastTimer);
@@ -242,6 +378,7 @@
       MG.sheet.current = bd;
       MG.sheet.onClose = opts.onClose || null;
       requestAnimationFrame(() => bd.classList.add("open"));
+      MG.sound("sheet");
       MG.$$("[data-close]", bd).forEach(b => b.addEventListener("click", () => MG.sheet.close()));
       const focusable = MG.$("input, button:not([data-close]), [href]", bd);
       if (focusable && !opts.noFocus) setTimeout(() => focusable.focus({ preventScroll: true }), 50);

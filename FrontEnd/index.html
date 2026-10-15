@@ -13,6 +13,13 @@
 <meta name="theme-color" content="#E7E8E4">
 <link rel="icon" type="image/png" href="assets/icons/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<!-- Don't paint until the tab bar and page shell exist (no pop-in during transitions) -->
+<link rel="expect" href="#mg-ready" blocking="render">
+<!-- Load likely next pages ahead of the tap so navigation is instant -->
+<script type="speculationrules">
+{"prerender":[{"source":"document","where":{"and":[{"href_matches":"/*.html"},{"not":{"href_matches":"/login.html"}}]},"eagerness":"moderate"}],
+ "prefetch":[{"source":"document","where":{"selector_matches":".tabbar a"},"eagerness":"eager"}]}
+</script>
 </head>
 <body>
 <main class="app wide home">
@@ -68,15 +75,28 @@ MG.me().then(u => {
   paint();
 });
 
-Promise.all(ROUTES.map(([from, to]) => api("/shortest-path", { body: { from, to } }).catch(() => null)))
-  .then(list => {
-    routes = list.filter(r => r && r.success).map(r => {
-      const legs = MetroSim.legsForPath(r.path) || [];
-      const dep = MetroSim.departures(r.path, 540, 1440, 1)[0];
-      return { ...r, lines: [...new Set(legs.map(l => l.line))], minutes: dep ? dep.durationMin : null };
-    });
-    paint();
+// Routes never change, so they are fetched once and kept: Home paints instantly
+const ROUTES_KEY = "mg-routes-v1";
+function useRoutes(list) {
+  routes = list.map(r => {
+    const legs = MetroSim.legsForPath(r.path) || [];
+    const dep = MetroSim.departures(r.path, 540, 1440, 1)[0];
+    return { ...r, lines: [...new Set(legs.map(l => l.line))], minutes: dep ? dep.durationMin : null };
   });
+  paint();
+}
+let savedRoutes = null;
+try { savedRoutes = JSON.parse(localStorage.getItem(ROUTES_KEY)); } catch (e) { /* storage blocked */ }
+if (Array.isArray(savedRoutes) && savedRoutes.length === ROUTES.length) {
+  queueMicrotask(() => useRoutes(savedRoutes)); // after the rest of this script sets up
+} else {
+  Promise.all(ROUTES.map(([from, to]) => api("/shortest-path", { body: { from, to } }).catch(() => null)))
+    .then(list => {
+      const ok = list.filter(r => r && r.success);
+      if (ok.length === ROUTES.length) { try { localStorage.setItem(ROUTES_KEY, JSON.stringify(ok)); } catch (e) { /* storage blocked */ } }
+      useRoutes(ok);
+    });
+}
 
 // Lazy-create the grayscale maps as cards scroll into view
 const io = new IntersectionObserver(entries => entries.forEach(e => {
@@ -168,5 +188,6 @@ async function toggleFav(name) {
   $$(`#cards [data-fav]`).forEach(b => b.setAttribute("aria-pressed", String(favs.has(b.dataset.fav))));
 }
 </script>
+<i id="mg-ready" hidden></i>
 </body>
 </html>

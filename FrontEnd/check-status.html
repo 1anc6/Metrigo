@@ -12,6 +12,13 @@
 <meta name="theme-color" content="#E7E8E4">
 <link rel="icon" type="image/png" href="assets/icons/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<!-- Don't paint until the tab bar and page shell exist (no pop-in during transitions) -->
+<link rel="expect" href="#mg-ready" blocking="render">
+<!-- Load likely next pages ahead of the tap so navigation is instant -->
+<script type="speculationrules">
+{"prerender":[{"source":"document","where":{"and":[{"href_matches":"/*.html"},{"not":{"href_matches":"/login.html"}}]},"eagerness":"moderate"}],
+ "prefetch":[{"source":"document","where":{"selector_matches":".tabbar a"},"eagerness":"eager"}]}
+</script>
 </head>
 <body>
 <main class="app wide trips">
@@ -126,5 +133,6 @@ if (MG.params.get("pnr")) { $("#q").value = MG.params.get("pnr"); $("#searchForm
 load();
 window.addEventListener("online", () => { if (offline) load(); });
 </script>
+<i id="mg-ready" hidden></i>
 </body>
 </html>

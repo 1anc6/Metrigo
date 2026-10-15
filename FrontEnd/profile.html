@@ -12,6 +12,13 @@
 <meta name="theme-color" content="#E7E8E4">
 <link rel="icon" type="image/png" href="assets/icons/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<!-- Don't paint until the tab bar and page shell exist (no pop-in during transitions) -->
+<link rel="expect" href="#mg-ready" blocking="render">
+<!-- Load likely next pages ahead of the tap so navigation is instant -->
+<script type="speculationrules">
+{"prerender":[{"source":"document","where":{"and":[{"href_matches":"/*.html"},{"not":{"href_matches":"/login.html"}}]},"eagerness":"moderate"}],
+ "prefetch":[{"source":"document","where":{"selector_matches":".tabbar a"},"eagerness":"eager"}]}
+</script>
 </head>
 <body>
 <main class="app wide split">
@@ -38,6 +45,13 @@
     <div class="seg sm" id="themeSeg" style="box-shadow:none;background:var(--card-2);padding:3px">
       <button type="button" data-t="light">Light</button>
       <button type="button" data-t="dark">Dark</button>
+    </div>
+  </div>
+  <div class="list-row">
+    <span data-icon="bolt"></span><span class="grow">Touch sounds<span class="sub">Soft taps and vibration</span></span>
+    <div class="seg sm" id="soundSeg" style="box-shadow:none;background:var(--card-2);padding:3px">
+      <button type="button" data-s="on">On</button>
+      <button type="button" data-s="off">Off</button>
     </div>
   </div>
   <a class="list-row" href="help.html"><span data-icon="help"></span><span class="grow">Help &amp; Support</span><span data-icon="arrowR" class="go"></span></a>
@@ -79,6 +93,10 @@ function paintTheme() { $$("#themeSeg button").forEach(b => b.setAttribute("aria
 $$("#themeSeg button").forEach(b => b.addEventListener("click", () => MG.theme.set(b.dataset.t)));
 document.addEventListener("mg:theme", paintTheme);
 paintTheme();
+
+function paintSound() { $$("#soundSeg button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.s === "on") === MG.soundOn()))); }
+$$("#soundSeg button").forEach(b => b.addEventListener("click", () => { MG.setSound(b.dataset.s === "on"); paintSound(); }));
+paintSound();
 
 $("#editBtn").addEventListener("click", () => {
   const sheet = MG.sheet.open(`
@@ -147,5 +165,6 @@ function openSaved() {
 
 load();
 </script>
+<i id="mg-ready" hidden></i>
 </body>
 </html>

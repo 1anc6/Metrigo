@@ -1,6 +1,6 @@
 // MetriGo service worker: offline app shell, cached static assets, network-first API.
 // Bump VERSION whenever the shell list changes; old caches are dropped on activate.
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = `mg-shell-${VERSION}`;
 const RUNTIME = `mg-runtime-${VERSION}`;
 const API = "mg-api"; // per-user API responses; cleared on logout
@@ -69,14 +69,25 @@ self.addEventListener("fetch", event => {
   event.respondWith(networkFirst(req));
 });
 
-// Pages: fresh when online, cached copy (or Home) when not
+// Pages: show the cached copy instantly and refresh it in the background
+// (stale-while-revalidate), so switching tabs never waits on the network.
+// A new deploy shows up on the next visit; bumping VERSION forces it at once.
 async function page(req) {
-  try {
-    const res = await fetch(req);
-    if (res.ok && !res.redirected) (await caches.open(SHELL)).put(req.url.split("?")[0], res.clone());
+  const key = req.url.split("?")[0];
+  const shell = await caches.open(SHELL);
+  const cached = await shell.match(key);
+  const fresh = fetch(req).then(res => {
+    if (res.ok && !res.redirected) shell.put(key, res.clone());
     return res;
+  });
+  if (cached) {
+    fresh.catch(() => {});
+    return cached;
+  }
+  try {
+    return await fresh;
   } catch (e) {
-    return (await caches.match(req, { ignoreSearch: true })) || (await caches.match("index.html")) || Response.error();
+    return (await caches.match("index.html")) || Response.error();
   }
 }
 
