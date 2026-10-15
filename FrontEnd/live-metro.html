@@ -73,7 +73,7 @@
 <script>
 const { $, $$, icon, esc } = MG;
 MG.shell("live");
-MG.stationDatalist("stations");
+MG.stationField($("#stationInput"), { title: "Show live arrivals at", eyebrow: "Station", host: $("#stationForm") });
 
 let station = MG.matchStation(MG.params.get("station")) || "Rajiv Chowk";
 let filter = null, trains = [], stationMarker = null;

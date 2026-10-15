@@ -81,7 +81,8 @@
 <script>
 const { $, $$, icon, esc, api, rupee } = MG;
 MG.shell(null);
-MG.stationDatalist("stations");
+MG.stationField($("#from"), { title: "Where are you starting?", eyebrow: "From", exclude: () => MG.matchStation($("#to").value), excludeLabel: "Your destination" });
+MG.stationField($("#to"), { title: "Where are you going?", eyebrow: "To", exclude: () => MG.matchStation($("#from").value), excludeLabel: "Your start" });
 
 const SLOTS = MetroSim.TIME_SLOTS, PARTS = MetroSim.DAY_PARTS;
 const today = MetroSim.istParts(Date.now()).date;

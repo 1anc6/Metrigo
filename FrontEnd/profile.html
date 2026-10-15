@@ -64,7 +64,6 @@
 <script>
 const { $, $$, icon, esc, api, rupee } = MG;
 MG.shell("profile");
-MG.stationDatalist("stations");
 
 let me = null;
 
@@ -140,10 +139,7 @@ function openSaved() {
   const favs = (me && me.favorites) || [];
   const sheet = MG.sheet.open(`
     <div class="sheet-head"><div class="h2">Saved stations</div>${MG.closeBtn()}</div>
-    <form class="search flat" id="addFav" style="margin-bottom:10px">
-      <input id="favIn" list="stations" placeholder="Add a station" aria-label="Add a station">
-      <button aria-label="Add">${icon("plus")}</button>
-    </form>
+    <button class="btn ghost" id="addFav" style="margin-bottom:12px">${icon("plus")}Add a station</button>
     <div class="card pad" style="padding-top:4px;padding-bottom:4px">${favs.length ? favs.map(f => `
       <div class="arrival">
         <span class="row" style="gap:3px">${MG.stationLines(f).map(l => `<span class="line-dot ${l}"></span>`).join("")}</span>
@@ -154,12 +150,12 @@ function openSaved() {
     const r = await api("/update-profile", { body: { favorites: list } });
     if (r.success) { await load(); openSaved(); }
   };
-  const add = () => {
-    const s = MG.matchStation($("#favIn", sheet).value);
+  // The picker replaces this sheet, so come back to it afterwards
+  $("#addFav", sheet).addEventListener("click", async () => {
+    const s = await MG.pickStation({ title: "Save a station", eyebrow: "Saved stations" });
     if (s && !favs.includes(s)) save([...favs, s]);
-  };
-  $("#addFav", sheet).addEventListener("submit", e => { e.preventDefault(); add(); });
-  $("#favIn", sheet).addEventListener("change", add);
+    else openSaved();
+  });
   $$("[data-rm]", sheet).forEach(b => b.addEventListener("click", () => save(favs.filter(f => f !== b.dataset.rm))));
 }
 

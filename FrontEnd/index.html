@@ -47,6 +47,8 @@
 
   <div id="install" hidden></div>
 
+  <section class="card next-trip" id="nextTrip" hidden aria-live="polite"></section>
+
   <section class="stack" id="cards" aria-live="polite">
     <div class="skeleton" style="height:212px"></div>
     <div class="skeleton" style="height:212px"></div>
@@ -59,7 +61,14 @@
 <script>
 const { $, $$, icon, esc, api, rupee } = MG;
 MG.shell("home");
-MG.stationDatalist("stations");
+// Search opens the station picker and goes straight to booking that trip
+MG.stationField($("#q"), {
+  title: "Where are you going?", eyebrow: "Search", host: $("#searchForm"),
+  onPick: to => {
+    const from = (me && me.favorites || []).find(f => f !== to) || "";
+    location.href = "bookings.html?" + new URLSearchParams({ from, to });
+  },
+});
 
 const ROUTES = [
   ["Rajiv Chowk", "Hauz Khas"], ["Kashmere Gate", "Vaishali"], ["Dwarka", "Karol Bagh"],
@@ -187,6 +196,56 @@ async function toggleFav(name) {
   MG.toast(favs.has(name) ? `${name} saved` : `${name} removed`);
   $$(`#cards [data-fav]`).forEach(b => b.setAttribute("aria-pressed", String(favs.has(b.dataset.fav))));
 }
+
+// ---------- Your next trip ----------
+// Saved tickets paint at once (works offline); the server copy refreshes them
+let nextTrip = null;
+function departsIn(ms) {
+  const min = Math.round((ms - Date.now()) / 60000);
+  if (min <= 1) return "Departing now";
+  if (min < 60) return `Departs in ${min} min`;
+  if (min < 24 * 60) return `Departs in ${Math.floor(min / 60)} h ${min % 60} min`;
+  const days = Math.round(min / (24 * 60));
+  return days === 1 ? "Departs tomorrow" : `Departs in ${days} days`;
+}
+function pickNext(list) {
+  return list.filter(b => MG.bookingState(b) === "confirmed" && b.departAt > Date.now() - 10 * 60000)
+    .sort((a, b) => a.departAt - b.departAt)[0] || null;
+}
+function paintNextTrip() {
+  const el = $("#nextTrip");
+  if (!nextTrip) { el.hidden = true; return; }
+  const b = nextTrip;
+  const soon = b.departAt - Date.now() < 60 * 60000;
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="row between">
+      <span class="eyebrow">Your next trip</span>
+      <span class="chip ${soon ? "warn" : "ok"}">${icon("clock")}${departsIn(b.departAt)}</span>
+    </div>
+    <div class="nt-route">
+      <span class="nt-st">${esc(b.from)}</span>${icon("arrowR")}<span class="nt-st">${esc(b.to)}</span>
+    </div>
+    <div class="nt-meta">
+      ${b.line ? `<span class="line-dot ${b.line}"></span>` : ""}
+      ${esc([b.travelDate && MG.fmtDate(b.travelDate, { weekday: "short", day: "numeric", month: "short" }), b.departTime, (b.seats || []).join(", ")].filter(Boolean).join(" · "))}
+    </div>
+    <div class="nt-actions">
+      <button class="btn" id="ntTicket">${icon("ticket")}Show ticket</button>
+      <a class="btn ghost" href="live-metro.html?station=${encodeURIComponent(b.from)}">${icon("live")}Live</a>
+    </div>`;
+  $("#ntTicket").addEventListener("click", () => MG.showTicket(b, { onCancelled: refreshNextTrip }));
+}
+function refreshNextTrip() {
+  api("/my-bookings").then(r => {
+    if (!r.success) return;
+    nextTrip = pickNext(r.bookings);
+    paintNextTrip();
+  }).catch(() => {});
+}
+MG.tickets.all().then(list => { if (!nextTrip) { nextTrip = pickNext(list); paintNextTrip(); } });
+refreshNextTrip();
+setInterval(paintNextTrip, 30000);
 </script>
 <i id="mg-ready" hidden></i>
 </body>

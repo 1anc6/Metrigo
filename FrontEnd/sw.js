@@ -1,6 +1,6 @@
 // MetriGo service worker: offline app shell, cached static assets, network-first API.
 // Bump VERSION whenever the shell list changes; old caches are dropped on activate.
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL = `mg-shell-${VERSION}`;
 const RUNTIME = `mg-runtime-${VERSION}`;
 const API = "mg-api"; // per-user API responses; cleared on logout

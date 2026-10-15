@@ -799,3 +799,90 @@ a, button, summary, label, .seat, .dest, .trip, .dep, .list-row { touch-action: 
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
 #trainView .page-head .title { view-transition-name: none; }
+
+/* =========================================================
+   Ticket: QR fills its white box exactly; PNR on one line;
+   export actions in an even row
+   ========================================================= */
+.qr-box { overflow: hidden; }
+/* qrcodejs draws a canvas, then swaps in an <img> copy once it loads; always
+   show the canvas (drawn synchronously) so the code can never be blank */
+.qr-box > canvas { width: 100% !important; height: 100% !important; display: block !important; image-rendering: pixelated; }
+.qr-box > img { display: none !important; }
+.qr-box > table { width: 100% !important; height: 100% !important; }
+.ticket-bottom { align-items: center; }
+.ticket-bottom .qr-box { width: 118px; height: 118px; padding: 7px; border-radius: 14px; box-shadow: var(--raise-xs); }
+.kv .wide { grid-column: 1 / -1; }
+.kv .pnr-v { font-size: 17px; letter-spacing: 0.04em; white-space: nowrap; }
+.ticket-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.ticket-actions .btn { height: 48px; font-size: 14px; padding: 0 10px; }
+@media (max-width: 360px) {
+  .ticket-bottom { flex-direction: column; }
+  .ticket-bottom .qr-box { width: 160px; height: 160px; }
+}
+
+/* =========================================================
+   Station picker
+   ========================================================= */
+.pk-host { cursor: pointer; }
+.pk-field { cursor: pointer; caret-color: transparent; }
+.field.pk-host::after {
+  content: ""; width: 7px; height: 7px; margin-left: 2px; flex: none;
+  border-right: 2px solid var(--text-3); border-bottom: 2px solid var(--text-3); transform: rotate(45deg) translateY(-2px);
+}
+.pk-search { position: sticky; top: -8px; z-index: 3; margin: 0 0 6px; height: 50px; }
+.pk-search::before { content: ""; position: absolute; inset: -10px -12px auto; height: 14px; background: var(--bg); z-index: -1; }
+.pk-search input[type="search"]::-webkit-search-cancel-button { filter: grayscale(1); opacity: 0.5; }
+.pk-list { display: flex; flex-direction: column; padding: 2px 2px 6px; min-height: 40vh; }
+.pk-section {
+  display: flex; align-items: center; gap: 8px; padding: 16px 6px 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3);
+}
+.pk-section svg.i { width: 14px; height: 14px; }
+.pk-section .pk-ends { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.pk-row {
+  position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px;
+  padding: 0 12px; border-radius: 14px; text-align: left; font-size: 15px; font-weight: 600; color: var(--text);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.pk-row:hover, .pk-row:focus-visible { background: var(--card); box-shadow: var(--raise-xs); outline: none; }
+.pk-row:active { box-shadow: var(--press-sm); }
+.pk-row:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+.pk-row.is-current { box-shadow: var(--press-sm); }
+.pk-row.is-current svg.i { color: var(--accent); width: 18px; height: 18px; }
+.pk-row .pk-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-row mark { background: none; color: var(--accent); font-weight: 800; }
+.pk-row .pk-dot { width: 22px; display: inline-flex; justify-content: center; gap: 3px; flex: none; }
+.pk-row .chip { height: 22px; padding: 0 8px; font-size: 11px; box-shadow: none; background: var(--card); }
+/* Line sections: one continuous track through hollow station dots */
+.pk-track .pk-row::before {
+  content: ""; position: absolute; left: 21.5px; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--lc);
+}
+.pk-track .pk-row:first-child::before { top: 50%; }
+.pk-track .pk-row:last-child::before { bottom: 50%; }
+.pk-track .pk-row .pk-dot .line-dot { position: relative; z-index: 1; width: 12px; height: 12px; background: var(--bg); border: 3px solid var(--lc); }
+.pk-track .pk-row:hover .pk-dot .line-dot, .pk-track .pk-row:focus-visible .pk-dot .line-dot { background: var(--card); }
+.pk-track .pk-row.is-current .pk-dot .line-dot { background: var(--lc); }
+.pk-empty { padding: 36px 12px; }
+
+/* Segmented controls share the width evenly instead of scrolling off-screen */
+.seg { overflow: hidden; }
+.seg button { flex: 1 1 0; min-width: 0; overflow: hidden; }
+.seg.sm button { flex: 0 1 auto; }
+@media (max-width: 440px) {
+  .seg button { padding: 0 6px; gap: 6px; font-size: 13.5px; letter-spacing: -0.01em; }
+  .seg button svg { width: 15px; height: 15px; }
+}
+@media (max-width: 350px) {
+  .seg:not(.sm) button svg { display: none; }
+}
+
+/* Home: your next trip */
+.next-trip { padding: 16px 18px 18px; }
+.next-trip .nt-route { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.next-trip .nt-route svg.i { flex: none; color: var(--text-2); }
+.next-trip .nt-st { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next-trip .nt-meta { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.next-trip .nt-actions { display: grid; grid-template-columns: 1.6fr 1fr; gap: 10px; margin-top: 14px; }
+.next-trip .nt-actions .btn { height: 48px; }
+.btn { white-space: nowrap; }

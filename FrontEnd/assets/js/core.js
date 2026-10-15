@@ -60,6 +60,7 @@
     lock: '<rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
     eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>',
     refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>',
     offline: '<path d="m3 3 18 18"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M5 12.9a10 10 0 0 1 5.2-2.8M19 12.9a10 10 0 0 0-2.4-1.8"/><path d="M2 8.8a15 15 0 0 1 4.3-2.7M22 8.8A15 15 0 0 0 10.6 5.1"/><path d="M12 20h.01"/>',
     navigation: '<path d="m3 11 18-8-8 18-2-8z"/>',
@@ -398,7 +399,19 @@
   };
   document.addEventListener("keydown", e => { if (e.key === "Escape" && MG.sheet.current) MG.sheet.close(); });
 
-  MG.closeBtn = () => `<button class="icon-btn" data-close aria-label="Close">${MG.icon("x")}</button>`;
+  // Save a Blob as a file (PDF tickets, calendar events)
+  MG.download = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+
+  MG.closeBtn =() => `<button class="icon-btn" data-close aria-label="Close">${MG.icon("x")}</button>`;
 
   MG.setBusy = (btn, busy, label) => {
     if (busy) {
@@ -425,6 +438,152 @@
     return MetroSim.stationNames().find(s => s.toLowerCase() === n) || null;
   };
   MG.stationLines = name => (MetroSim.stationIndex[name] || []).map(s => s.line);
+
+  // ---------- Station picker ----------
+  // A sheet in the app's style instead of the browser's suggestion list:
+  // search with highlighting, Saved and Recent first, then each line in
+  // route order along a coloured track. Resolves to a name, or null.
+  const RECENT_KEY = "mg-recent-stations";
+  MG.recentStations = () => {
+    try { return (JSON.parse(localStorage.getItem(RECENT_KEY)) || []).filter(MG.isStation); } catch (e) { return []; }
+  };
+  function rememberStation(name) {
+    const list = [name, ...MG.recentStations().filter(n => n !== name)].slice(0, 6);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch (e) { /* storage blocked */ }
+  }
+
+  // opts: { title, eyebrow, current, exclude, excludeLabel }
+  MG.pickStation = (opts = {}) => new Promise(resolve => {
+    let settled = false;
+    const finish = v => { if (!settled) { settled = true; resolve(v); } };
+    const total = MetroSim.stationNames().length;
+    const sheet = MG.sheet.open(`
+      <div class="sheet-head">
+        <div><div class="eyebrow">${MG.esc(opts.eyebrow || "Station")}</div><div class="h2">${MG.esc(opts.title || "Choose a station")}</div></div>
+        ${MG.closeBtn()}
+      </div>
+      <label class="search flat pk-search">${MG.icon("search")}
+        <input id="pkQ" type="search" placeholder="Search ${total} stations" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" aria-label="Search stations" aria-controls="pkList">
+      </label>
+      <div class="pk-list" id="pkList" role="listbox" aria-label="Stations"></div>`,
+      { label: opts.title || "Choose a station", onClose: () => finish(null), noFocus: true });
+
+    const input = MG.$("#pkQ", sheet), list = MG.$("#pkList", sheet);
+    let favorites = [];
+
+    const highlight = (name, q) => {
+      const i = q ? name.toLowerCase().indexOf(q) : -1;
+      if (i < 0) return MG.esc(name);
+      return MG.esc(name.slice(0, i)) + "<mark>" + MG.esc(name.slice(i, i + q.length)) + "</mark>" + MG.esc(name.slice(i + q.length));
+    };
+    const row = (name, q, trackLine) => {
+      const lines = MG.stationLines(name);
+      const taken = name === opts.exclude;
+      const current = name === opts.current;
+      const others = trackLine ? lines.filter(l => l !== trackLine) : [];
+      const dots = trackLine
+        ? `<span class="line-dot"></span>`
+        : lines.map(l => `<span class="line-dot ${l}"></span>`).join("");
+      const tag = trackLine && others.length
+        ? `<span class="chip">${others.map(l => `<span class="line-dot ${l}"></span>`).join("")}Change</span>`
+        : !trackLine && lines.length > 1 ? `<span class="chip">Interchange</span>` : "";
+      return `<button type="button" class="pk-row${current ? " is-current" : ""}" role="option" aria-selected="${current}" data-name="${MG.esc(name)}" ${taken ? "disabled" : ""}>
+        <span class="pk-dot">${dots}</span>
+        <span class="pk-name">${highlight(name, q)}</span>
+        ${tag}
+        ${taken ? `<span class="tiny faint">${MG.esc(opts.excludeLabel || "Already chosen")}</span>` : current ? MG.icon("check") : ""}
+      </button>`;
+    };
+    const section = (label, names, extra) => names.length
+      ? `<div class="pk-section">${extra || ""}${MG.esc(label)}</div>${names.map(n => row(n, "")).join("")}` : "";
+
+    function render() {
+      const q = input.value.trim().toLowerCase();
+      if (q) {
+        const hits = MetroSim.stationNames()
+          .filter(n => n.toLowerCase().includes(q))
+          .sort((a, b) => (b.toLowerCase().startsWith(q) - a.toLowerCase().startsWith(q)) || a.localeCompare(b));
+        list.innerHTML = hits.length
+          ? hits.map(n => row(n, q)).join("")
+          : `<div class="empty pk-empty">${MG.icon("search")}<div class="h3">No station matches “${MG.esc(input.value.trim())}”</div><p class="small">Try part of the name, like “chowk” or “sec”.</p></div>`;
+        return;
+      }
+      const recent = MG.recentStations().filter(n => !favorites.includes(n));
+      let html = section("Saved", favorites, MG.icon("bookmark")) + section("Recent", recent, MG.icon("clock"));
+      Object.values(MetroSim.LINES).forEach(line => {
+        html += `<div class="pk-section"><span class="line-dot ${line.id}"></span>${line.name}<span class="pk-ends">${MG.esc(line.termini[0])} – ${MG.esc(line.termini[1])}</span></div>
+          <div class="pk-track" style="--lc:${line.color}">${line.names.map(n => row(n, "", line.id)).join("")}</div>`;
+      });
+      list.innerHTML = html;
+    }
+
+    function choose(name) {
+      if (!name) return;
+      rememberStation(name);
+      MG.sheet.close(true);
+      finish(name);
+    }
+
+    list.addEventListener("click", e => {
+      const b = e.target.closest(".pk-row");
+      if (b && !b.disabled) choose(b.dataset.name);
+    });
+    input.addEventListener("input", render);
+    input.addEventListener("keydown", e => {
+      const first = MG.$(".pk-row:not(:disabled)", list);
+      if (e.key === "Enter") { e.preventDefault(); if (first) choose(first.dataset.name); }
+      if (e.key === "ArrowDown" && first) { e.preventDefault(); first.focus(); }
+    });
+    list.addEventListener("keydown", e => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const rows = MG.$$(".pk-row:not(:disabled)", list);
+      const i = rows.indexOf(document.activeElement);
+      e.preventDefault();
+      if (e.key === "ArrowUp" && i <= 0) return input.focus();
+      const next = rows[Math.min(rows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1))];
+      if (next) next.focus();
+    });
+
+    render();
+    MG.me().then(u => {
+      favorites = ((u && u.favorites) || []).filter(MG.isStation);
+      if (!input.value) render();
+    }).catch(() => {});
+    // Keyboard users (desktop) can type straight away; on phones the
+    // keyboard would cover the list, so it opens only when they tap search
+    if (MG.desk.matches) setTimeout(() => input.focus({ preventScroll: true }), 60);
+    const cur = opts.current && MG.$(`.pk-track .pk-row[data-name="${CSS.escape(opts.current)}"]`, list);
+    if (cur) setTimeout(() => cur.scrollIntoView({ block: "center" }), 80);
+  });
+
+  // Turn an <input> into a button that opens the picker; fires "change"
+  // opts: { title, eyebrow, exclude() → name, excludeLabel, host, onPick(name) }
+  MG.stationField = (input, opts = {}) => {
+    input.removeAttribute("list");
+    input.readOnly = true;
+    input.setAttribute("inputmode", "none");
+    input.setAttribute("aria-haspopup", "dialog");
+    input.classList.add("pk-field");
+    const open = async () => {
+      const name = await MG.pickStation({
+        title: opts.title, eyebrow: opts.eyebrow,
+        current: MG.matchStation(input.value),
+        exclude: opts.exclude ? opts.exclude() : null,
+        excludeLabel: opts.excludeLabel,
+      });
+      if (!name) return;
+      input.value = name;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      if (opts.onPick) opts.onPick(name);
+    };
+    const host = opts.host || input.closest(".field") || input;
+    host.classList.add("pk-host");
+    host.addEventListener("click", e => { e.preventDefault(); open(); });
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") { e.preventDefault(); open(); }
+    });
+    return open;
+  };
 
   // ---------- Route visuals ----------
   // Dashed curve between an origin diamond and a destination pin (trip cards)
