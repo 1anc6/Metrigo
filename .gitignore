@@ -15,3 +15,6 @@ Backend/data/support.json
 
 # Vercel CLI
 .vercel/
+
+.vercel
+.env*

@@ -1,0 +1,17 @@
+{
+  "name": "metrigo",
+  "private": true,
+  "description": "MetriGo on Vercel: the API function (api/index.js) uses these dependencies. For local development use Backend/package.json.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.7.1",
+    "express-session": "^1.18.1",
+    "nodemailer": "^8.0.11"
+  }
+}

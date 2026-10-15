@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install --prefix Backend",
   "buildCommand": "",
   "outputDirectory": "FrontEnd",
   "functions": {
@@ -14,12 +13,20 @@
       "source": "/:route(register|login|logout|forgot-password|reset-password|profile|update-profile|stations|shortest-path|journey|seat-map|suggest-seats|my-bookings|check-pnr|cancel-booking|card-balance|support)",
       "destination": "/api"
     },
-    { "source": "/payments/:path*", "destination": "/api" }
+    {
+      "source": "/payments/:path*",
+      "destination": "/api"
+    }
   ],
   "headers": [
     {
       "source": "/sw.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
     }
   ]
 }
