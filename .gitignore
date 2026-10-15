@@ -1,0 +1,14 @@
+# Dependencies: run `npm install` inside Backend/
+node_modules/
+
+# Local data: SQLite database, sessions and user records (emails, password hashes)
+Backend/data/*.db
+Backend/data/*.db-*
+Backend/data/users.json
+Backend/data/bookings.json
+Backend/data/support.json
+
+# Secrets and local tooling
+.env
+.claude/
+.vscode/

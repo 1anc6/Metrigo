@@ -114,22 +114,32 @@ Why Used: - Enables pathfinding algorithms like Dijkstra
 API ENDPOINTS
 
 AUTHENTICATION - POST /register → Register user - POST /login → Login
-user - GET /logout → Logout
+user - GET /logout → Logout - POST /forgot-password, POST /reset-password
 
 PROFILE - GET /profile → Get user details - POST /update-profile →
-Update profile/password
+Update name, password or saved stations
 
 METRO & ROUTING - GET /stations → Fetch stations - POST /shortest-path →
-Get route (Dijkstra)
+Get route (Dijkstra) - POST /journey → Route, fare and departures for a
+date and time slot
 
-BOOKING - POST /save-booking → Create booking - GET /my-bookings → User
-bookings - GET /check-pnr → Check booking status
+SMART SEAT SYSTEM - POST /seat-map → Taken seats for a departure - POST
+/suggest-seats → Seat suggestions (Greedy + Backtracking)
 
-SMART SEAT SYSTEM - POST /suggest-seats → Seat suggestions (Greedy +
-Backtracking)
+PAYMENTS - GET /payments/config - POST /payments/order → Server-priced
+order for a ticket or recharge - POST /payments/verify → Confirm payment
+(test mode, Razorpay signature, or Metro Card) and issue the ticket
 
-SMART CARD - GET /card-balance → Check balance - POST /recharge-card →
-Recharge
+BOOKING - GET /my-bookings → User bookings - GET /check-pnr → Check
+booking status - POST /cancel-booking → Cancel and refund to Metro Card
+
+SMART CARD - GET /card-balance → Balance and recent activity
+
+SUPPORT - POST /support → Send a message to support
+
+PAYMENT GATEWAY: runs in test mode by default. Set RAZORPAY_KEY_ID and
+RAZORPAY_KEY_SECRET before starting the server to take real payments
+through Razorpay Checkout.
 
 ------------------------------------------------------------------------
 
