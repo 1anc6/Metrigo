@@ -5,16 +5,19 @@
   "main": "server.js",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "copy-to-turso": "node scripts/copy-to-turso.js"
   },
   "dependencies": {
-    "bcrypt": "^6.0.0",
-    "better-sqlite3": "^13.0.3",
-    "better-sqlite3-session-store": "^0.1.0",
+    "@libsql/client": "^0.18.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.1",
     "express-session": "^1.18.1",
     "nodemailer": "^8.0.11"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

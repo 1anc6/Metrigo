@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install --prefix Backend",
+  "buildCommand": "",
+  "outputDirectory": "FrontEnd",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "{Backend/data/*.csv,FrontEnd/assets/js/metro-sim.js}",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/:route(register|login|logout|forgot-password|reset-password|profile|update-profile|stations|shortest-path|journey|seat-map|suggest-seats|my-bookings|check-pnr|cancel-booking|card-balance|support)",
+      "destination": "/api"
+    },
+    { "source": "/payments/:path*", "destination": "/api" }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ]
+}

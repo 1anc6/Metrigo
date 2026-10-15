@@ -12,3 +12,6 @@ Backend/data/support.json
 .env
 .claude/
 .vscode/
+
+# Vercel CLI
+.vercel/

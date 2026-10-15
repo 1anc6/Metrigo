@@ -2,7 +2,7 @@
 
 A smart metro booking web app for the Delhi Metro. Find the shortest route, pick a train and your seats, pay, and carry a QR ticket that works offline. A live map shows every train moving along the Yellow and Blue lines.
 
-Built with Node.js, Express and SQLite on the backend and plain HTML, CSS and JavaScript on the frontend. No frontend framework or build step.
+Built with Node.js, Express and SQLite (Turso in production) on the backend and plain HTML, CSS and JavaScript on the frontend. No frontend framework or build step.
 
 ## Features
 
@@ -40,12 +40,27 @@ Everything works out of the box. Set these environment variables to switch on th
 |---|---|
 | `PORT` | Port to listen on. Default `8080` |
 | `SESSION_SECRET` | Secret for login cookies. Without it a random one is used and everyone is signed out on restart |
-| `METRIGO_DB` | Path to the SQLite database. Default `Backend/data/metrigo.db` |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Use a [Turso](https://turso.tech) database (needed on Vercel). Without them a local SQLite file is used |
+| `METRIGO_DB` | Path to the local SQLite file. Default `Backend/data/metrigo.db` |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Take real payments through Razorpay Checkout instead of test mode |
 | `RAZORPAY_WEBHOOK_SECRET` | Verify Razorpay webhooks sent to `/payments/webhook` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Email password-reset codes. Without SMTP, codes are printed in the server console for development |
 
 In **test mode** no money moves: the checkout simulates the payment so you can try the full booking flow.
+
+## Deploying to Vercel
+
+Vercel runs the API as a serverless function and serves `FrontEnd/` as static files (see `vercel.json` and `api/index.js`). Serverless functions can't keep a database file, so production data lives in Turso, a hosted SQLite.
+
+1. **Create the database.** Sign up at [turso.tech](https://turso.tech), create a database, and create a token for it. Note the database URL (`libsql://...`) and the token.
+2. **Copy your existing data (optional).** From `Backend/`, with the two values set in your shell:
+   ```bash
+   TURSO_DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... npm run copy-to-turso
+   ```
+   This copies users, bookings, Metro Card history and support tickets. It is safe to run more than once.
+3. **Import the repo on Vercel.** At [vercel.com/new](https://vercel.com/new), import this GitHub repository and keep the root directory as the repo root. The settings come from `vercel.json`.
+4. **Add environment variables** in the Vercel project settings: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` and `SESSION_SECRET` (any long random string). Add the Razorpay and SMTP variables if you use them.
+5. **Deploy.** Every push to `main` deploys again automatically.
 
 ## How it works
 
@@ -67,8 +82,8 @@ Fares follow distance bands, then a time-slot multiplier: early morning ×0.8, a
 3. The server issues a PNR (based on SHA-256) and saves the booking in a single database transaction, so a seat can't be sold twice.
 
 ### Security
-- Passwords are hashed with bcrypt.
-- Sessions are stored in SQLite.
+- Passwords are hashed with bcrypt (bcryptjs).
+- Sessions are stored in the database, so logins survive restarts and serverless cold starts.
 - Login and password-reset requests are rate-limited.
 - Reset codes are only ever emailed, never returned by the API.
 
@@ -92,9 +107,12 @@ All endpoints take and return JSON. Endpoints that need a signed-in user return 
 ```
 Backend/
   server.js        Express app and every API route
-  db.js            SQLite schema, queries and one-time import of old JSON data
+  db.js            libSQL/Turso schema, queries, transactions and session store
+  scripts/         copy-to-turso.js: copy the local database into Turso
   payments.js      Payment gateway adapter (test mode or Razorpay)
   data/            stations.csv, edges.csv; the database is created here
+api/index.js       Vercel serverless entry (the Express app)
+vercel.json        Vercel static + rewrite config
 FrontEnd/
   *.html           Pages: home, booking, trips, live map, metro card, profile, help, sign-in
   assets/css/      Design system (app.css)

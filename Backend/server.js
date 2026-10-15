@@ -1,11 +1,11 @@
-// MetriGo backend — Express + express-session + bcrypt, SQLite storage (db.js)
-// and CSV metro network. Serves the FrontEnd folder on the same origin so the
-// session cookie works with the frontend's plain fetch() calls.
+// MetriGo backend — Express + express-session + bcrypt, libSQL/Turso storage
+// (db.js) and CSV metro network. Locally it also serves the FrontEnd folder on
+// the same origin; on Vercel the pages are static files and this app runs as
+// a serverless function (see api/index.js and vercel.json).
 
 const express = require("express");
 const session = require("express-session");
-const SqliteStore = require("better-sqlite3-session-store")(session);
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const nodemailer = require("nodemailer");
@@ -13,7 +13,10 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
-const { db, q, toUser, toTxn, toBooking, bookingRow, insertUser, insertTxn, insertBooking, insertSeat } = require("./db");
+const {
+  ready, transaction, isUniqueViolation, LibsqlSessionStore,
+  q, toUser, toTxn, toBooking, bookingRow, insertUser, insertTxn, insertBooking, insertSeat,
+} = require("./db");
 const payments = require("./payments");
 const MetroSim = require("../FrontEnd/assets/js/metro-sim.js");
 
@@ -33,8 +36,8 @@ function readCSV(file) {
 // =============================
 // USERS — primary-key lookup
 // =============================
-function getUser(email) {
-  return toUser(q.userByEmail.get(String(email || "").trim().toLowerCase()));
+async function getUser(email) {
+  return toUser(await q.userByEmail.get(String(email || "").trim().toLowerCase()));
 }
 
 async function verifyPassword(password, stored) {
@@ -169,14 +172,14 @@ const METRO_CARD_DISCOUNT = 0.1;
 // =============================
 // PNR — SHA-256 based, unique against existing bookings
 // =============================
-function generatePNR(email) {
+async function generatePNR(email) {
   let pnr;
   do {
     const digest = crypto.createHash("sha256")
       .update(`${email}|${Date.now()}|${crypto.randomBytes(8).toString("hex")}`)
       .digest("hex");
     pnr = "MG" + (parseInt(digest.slice(0, 12), 16) % 1e8).toString().padStart(8, "0");
-  } while (q.pnrExists.get(pnr));
+  } while (await q.pnrExists.get(pnr));
   return pnr;
 }
 
@@ -224,7 +227,7 @@ function seededTaken(journeyKey, seatId, rate) {
 
 // Seats held by other users' unpaid orders (see PAYMENTS) count as taken.
 // A user's own holds don't block them, so going back to change seats works.
-function takenSeats(date, trainId, timeSlot, forEmail) {
+async function takenSeats(date, trainId, timeSlot, forEmail) {
   const key = `${date}|${trainId}`;
   const taken = new Set();
   const rate = OCCUPANCY[timeSlot] ?? 0.25;
@@ -236,9 +239,12 @@ function takenSeats(date, trainId, timeSlot, forEmail) {
       });
     }
   });
-  q.takenSeats.all(date, trainId).forEach(s => taken.add(s));
-  q.heldSeatDrafts.all(date, trainId, Date.now(), forEmail ?? null)
-    .forEach(draft => JSON.parse(draft).seats.forEach(s => taken.add(s)));
+  const [booked, held] = await Promise.all([
+    q.takenSeats.all(date, trainId),
+    q.heldSeatDrafts.all(date, trainId, Date.now(), forEmail ?? null),
+  ]);
+  booked.forEach(s => taken.add(s));
+  held.forEach(draft => JSON.parse(draft).seats.forEach(s => taken.add(s)));
   return taken;
 }
 
@@ -317,6 +323,19 @@ function suggestSeats(taken, count) {
 // =============================
 const app = express();
 
+// Behind Vercel's proxy: real client IPs for rate limits, HTTPS for cookies
+if (process.env.VERCEL) app.set("trust proxy", 1);
+
+// Every request waits for the schema (and the one-time JSON import)
+app.use(async (req, res, next) => {
+  try {
+    await ready;
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.use(cors({ origin: true, credentials: true }));
 // Keep the raw body for the Razorpay webhook signature check
 app.use(express.json({ verify: (req, res, buf) => { if (req.originalUrl === "/payments/webhook") req.rawBody = buf; } }));
@@ -327,11 +346,11 @@ if (!SESSION_SECRET) {
 }
 
 app.use(session({
-  store: new SqliteStore({ client: db, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
+  store: new LibsqlSessionStore(),
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: "lax", maxAge: 24 * 60 * 60 * 1000 },
+  cookie: { httpOnly: true, sameSite: "lax", secure: "auto", maxAge: 24 * 60 * 60 * 1000 },
 }));
 
 function requireLogin(req, res, next) {
@@ -359,10 +378,10 @@ app.post("/register", async (req, res) => {
   }
 
   const exists = "An account with this email already exists.";
-  if (getUser(email)) return res.json({ success: false, message: exists });
+  if (await getUser(email)) return res.json({ success: false, message: exists });
 
   try {
-    insertUser.run({
+    await insertUser.run({
       email,
       password: await bcrypt.hash(password, 10),
       name,
@@ -372,7 +391,7 @@ app.post("/register", async (req, res) => {
     });
   } catch (err) {
     // Two registrations raced past the check above
-    if (err.code === "SQLITE_CONSTRAINT_PRIMARYKEY") return res.json({ success: false, message: exists });
+    if (isUniqueViolation(err)) return res.json({ success: false, message: exists });
     throw err;
   }
 
@@ -395,7 +414,7 @@ const forgotLimiter = limiter(5, "Too many reset requests. Try again in 15 minut
 const resetLimiter = limiter(10, "Too many reset attempts. Try again in 15 minutes.");
 
 app.post("/login", loginLimiter, async (req, res) => {
-  const user = getUser(req.body.email);
+  const user = await getUser(req.body.email);
   if (!user || !(await verifyPassword(String(req.body.password || ""), user.password))) {
     return res.json({ success: false, message: "Invalid email or password." });
   }
@@ -447,13 +466,13 @@ function sendResetCode(email, name, code) {
   }).catch(err => console.error("Reset email failed:", err.message));
 }
 
-app.post("/forgot-password", forgotLimiter, (req, res) => {
-  q.pruneResetTokens.run(Date.now());
-  const user = getUser(req.body.email);
+app.post("/forgot-password", forgotLimiter, async (req, res) => {
+  await q.pruneResetTokens.run(Date.now());
+  const user = await getUser(req.body.email);
   if (user) {
     const email = user.email;
     const code = crypto.randomBytes(4).toString("hex").toUpperCase();
-    q.upsertResetToken.run(email, hashResetCode(code), Date.now() + RESET_TTL_MS);
+    await q.upsertResetToken.run(email, hashResetCode(code), Date.now() + RESET_TTL_MS);
     sendResetCode(email, user.name, code);
   }
   res.json({ success: true, message: RESET_SENT_MESSAGE });
@@ -463,26 +482,26 @@ app.post("/reset-password", resetLimiter, async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const token = String(req.body.token || "").trim().toUpperCase();
   const newPassword = String(req.body.newPassword || "");
-  const entry = q.resetToken.get(email);
+  const entry = await q.resetToken.get(email);
 
   if (!entry || entry.expires < Date.now() || entry.attempts >= RESET_MAX_ATTEMPTS) {
-    q.deleteResetToken.run(email);
+    await q.deleteResetToken.run(email);
     return res.json({ success: false, message: RESET_BAD_MESSAGE });
   }
   if (!crypto.timingSafeEqual(Buffer.from(hashResetCode(token)), Buffer.from(entry.hash))) {
-    q.resetAttempt.run(email);
+    await q.resetAttempt.run(email);
     return res.json({ success: false, message: RESET_BAD_MESSAGE });
   }
   if (newPassword.length < 6) {
     return res.json({ success: false, message: "Password must be at least 6 characters." });
   }
 
-  if (!getUser(email)) return res.json({ success: false, message: RESET_BAD_MESSAGE });
+  if (!(await getUser(email))) return res.json({ success: false, message: RESET_BAD_MESSAGE });
   const hash = await bcrypt.hash(newPassword, 10);
   // Burn the code and set the password together, so a code works only once
-  const applied = db.transaction(() => {
-    if (!q.consumeResetToken.run(email, entry.hash).changes) return false;
-    q.updatePassword.run(hash, email);
+  const applied = await transaction(async () => {
+    if (!(await q.consumeResetToken.run(email, entry.hash)).changes) return false;
+    await q.updatePassword.run(hash, email);
     return true;
   })();
   if (!applied) return res.json({ success: false, message: RESET_BAD_MESSAGE });
@@ -490,8 +509,8 @@ app.post("/reset-password", resetLimiter, async (req, res) => {
 });
 
 // ---------- PROFILE ----------
-app.get("/profile", requireLogin, (req, res) => {
-  const user = getUser(req.session.email);
+app.get("/profile", requireLogin, async (req, res) => {
+  const user = await getUser(req.session.email);
   if (!user) return res.status(401).json({ success: false, message: "Not logged in" });
   const { password, ...data } = user;
   data.cardBalance = data.cardBalance || 0;
@@ -500,7 +519,7 @@ app.get("/profile", requireLogin, (req, res) => {
 
 app.post("/update-profile", requireLogin, async (req, res) => {
   const email = req.session.email;
-  if (!getUser(email)) return res.status(401).json({ success: false });
+  if (!(await getUser(email))) return res.status(401).json({ success: false });
 
   let hash = null;
   if (req.body.password !== undefined) {
@@ -511,17 +530,17 @@ app.post("/update-profile", requireLogin, async (req, res) => {
     hash = await bcrypt.hash(password, 10);
   }
 
-  db.transaction(() => {
+  await transaction(async () => {
     if (typeof req.body.name === "string") {
-      q.updateName.run(req.body.name.trim().slice(0, 100), email);
+      await q.updateName.run(req.body.name.trim().slice(0, 100), email);
     }
     if (Array.isArray(req.body.favorites)) {
       const favorites = req.body.favorites
         .filter(n => typeof n === "string" && stationByName.has(n.toLowerCase()))
         .slice(0, 10);
-      q.updateFavorites.run(JSON.stringify(favorites), email);
+      await q.updateFavorites.run(JSON.stringify(favorites), email);
     }
-    if (hash) q.updatePassword.run(hash, email);
+    if (hash) await q.updatePassword.run(hash, email);
   })();
   res.json({ success: true });
 });
@@ -538,7 +557,7 @@ app.post("/shortest-path", (req, res) => {
 });
 
 // Route + fare + departures in a time slot on a date
-app.post("/journey", (req, res) => {
+app.post("/journey", async (req, res) => {
   const route = findRoute(req.body.from, req.body.to);
   if (!route) return res.json({ success: false, message: "Choose two different, valid stations." });
 
@@ -549,15 +568,15 @@ app.post("/journey", (req, res) => {
   // A precise fare slot, a part of the day, or the rest of the day
   const slot = MetroSim.TIME_SLOTS[req.body.slot] || MetroSim.DAY_PARTS[req.body.slot] || { start: 0, end: 1440 };
 
-  const list = departuresFor(route, date, slot.start, slot.end, 12).map(d => {
+  const list = await Promise.all(departuresFor(route, date, slot.start, slot.end, 12).map(async d => {
     const timeSlot = slotForMinute(d.depart);
     return {
       ...d,
       timeSlot,
       perPassenger: applyPeakPricing(route.fare, timeSlot),
-      crowd: crowdLevel(takenSeats(date, d.trainId, timeSlot, req.session.email)),
+      crowd: crowdLevel(await takenSeats(date, d.trainId, timeSlot, req.session.email)),
     };
-  });
+  }));
 
   res.json({ success: true, route, date, departures: list });
 });
@@ -573,10 +592,10 @@ function journeyContext(body) {
   return { route, date, dep, timeSlot };
 }
 
-app.post("/seat-map", (req, res) => {
+app.post("/seat-map", async (req, res) => {
   const ctx = journeyContext(req.body);
   if (!ctx) return res.json({ success: false, message: "This departure is no longer available." });
-  const taken = takenSeats(ctx.date, ctx.dep.trainId, ctx.timeSlot, req.session.email);
+  const taken = await takenSeats(ctx.date, ctx.dep.trainId, ctx.timeSlot, req.session.email);
   res.json({
     success: true,
     coaches: COACHES.map(c => ({ id: c, womenOnly: c === "C1" })),
@@ -587,11 +606,11 @@ app.post("/seat-map", (req, res) => {
   });
 });
 
-app.post("/suggest-seats", (req, res) => {
+app.post("/suggest-seats", async (req, res) => {
   const ctx = journeyContext(req.body);
   const count = parseInt(req.body.count, 10);
   if (!ctx || !Number.isInteger(count)) return res.json({ success: false, message: "No suitable seats" });
-  const suggested = suggestSeats(takenSeats(ctx.date, ctx.dep.trainId, ctx.timeSlot, req.session.email), count);
+  const suggested = suggestSeats(await takenSeats(ctx.date, ctx.dep.trainId, ctx.timeSlot, req.session.email), count);
   if (!suggested) return res.json({ success: false, message: "No suitable seats" });
   res.json({ success: true, suggested });
 });
@@ -605,30 +624,30 @@ const ORDER_TTL_MS = 15 * 60 * 1000;
 const ORDER_GRACE_MS = 45 * 60 * 1000;
 
 function pruneOrders() {
-  q.pruneOrders.run(Date.now() - ORDER_GRACE_MS);
+  return q.pruneOrders.run(Date.now() - ORDER_GRACE_MS);
 }
 
-function getOrder(id) {
-  const row = q.orderById.get(id);
+async function getOrder(id) {
+  const row = await q.orderById.get(id);
   if (!row) return null;
   return {
-    email: row.email, purpose: row.purpose, amount: row.amount, metroCardAmount: row.metro_card_amount,
-    draft: JSON.parse(row.draft), expires: row.expires, released: Boolean(row.released),
+    email: row.email, purpose: row.purpose, amount: Number(row.amount), metroCardAmount: Number(row.metro_card_amount),
+    draft: JSON.parse(row.draft), expires: Number(row.expires), released: Boolean(Number(row.released)),
     status: row.status, result: row.result && JSON.parse(row.result),
   };
 }
 
-// Thrown inside a db.transaction() to roll it back and answer with `body`
+// Thrown inside a transaction() to roll it back and answer with `body`
 class Reject extends Error {
   constructor(body) { super(body.message); this.body = body; }
 }
 
 // A payment already turned into a booking or recharge (e.g. before a restart)
-function settledPayment(paymentId) {
-  const booking = toBooking(q.bookingByPaymentId.get(paymentId));
+async function settledPayment(paymentId) {
+  const booking = toBooking(await q.bookingByPaymentId.get(paymentId));
   if (booking) return { booking };
-  const txn = q.txnByPaymentId.get(paymentId);
-  return txn ? { user: getUser(txn.email) } : null;
+  const txn = await q.txnByPaymentId.get(paymentId);
+  return txn ? { user: await getUser(txn.email) } : null;
 }
 
 app.get("/payments/config", (req, res) => {
@@ -641,7 +660,7 @@ app.get("/payments/config", (req, res) => {
 });
 
 app.post("/payments/order", requireLogin, async (req, res) => {
-  pruneOrders();
+  await pruneOrders();
   const purpose = req.body.purpose === "recharge" ? "recharge" : "ticket";
   let amount, draft, ctx;
 
@@ -659,7 +678,7 @@ app.post("/payments/order", requireLogin, async (req, res) => {
     if (!seats.length || seats.length > 6 || !seats.every(s => SEAT_ID_RE.test(s))) {
       return res.json({ success: false, message: "Select between 1 and 6 seats." });
     }
-    const taken = takenSeats(ctx.date, ctx.dep.trainId, ctx.timeSlot, req.session.email);
+    const taken = await takenSeats(ctx.date, ctx.dep.trainId, ctx.timeSlot, req.session.email);
     const clash = seats.filter(s => taken.has(s));
     if (clash.length) {
       return res.json({ success: false, message: `Seat ${clash.join(", ")} was just taken.`, taken: clash });
@@ -686,17 +705,17 @@ app.post("/payments/order", requireLogin, async (req, res) => {
   // Check again: another order may have taken the seats while we waited on
   // the gateway. The re-check, releasing this user's older hold and storing
   // the new hold commit as one transaction.
-  const placeOrder = db.transaction(() => {
+  const placeOrder = transaction(async () => {
     if (purpose === "ticket") {
-      const taken = takenSeats(ctx.date, ctx.dep.trainId, ctx.timeSlot, req.session.email);
+      const taken = await takenSeats(ctx.date, ctx.dep.trainId, ctx.timeSlot, req.session.email);
       const clash = draft.seats.filter(s => taken.has(s));
       if (clash.length) {
         throw new Reject({ success: false, message: `Seat ${clash.join(", ")} was just taken.`, taken: clash });
       }
       // One checkout per user holds seats; a newer one replaces the older hold
-      q.releaseUserTicketOrders.run(req.session.email);
+      await q.releaseUserTicketOrders.run(req.session.email);
     }
-    q.insertOrder.run({
+    await q.insertOrder.run({
       id: order.id, email: req.session.email, purpose, amount, metroCardAmount,
       draft: JSON.stringify(draft),
       travelDate: purpose === "ticket" ? draft.date : null,
@@ -705,13 +724,13 @@ app.post("/payments/order", requireLogin, async (req, res) => {
     });
   });
   try {
-    placeOrder();
+    await placeOrder();
   } catch (err) {
     if (err instanceof Reject) return res.json(err.body);
     throw err;
   }
 
-  const user = getUser(req.session.email);
+  const user = await getUser(req.session.email);
   res.json({
     success: true,
     orderId: order.id,
@@ -731,8 +750,8 @@ app.post("/payments/order", requireLogin, async (req, res) => {
 });
 
 // Checkout closed without paying: free the seats straight away
-app.post("/payments/cancel", requireLogin, (req, res) => {
-  q.releaseOrder.run(String(req.body.orderId || ""), req.session.email);
+app.post("/payments/cancel", requireLogin, async (req, res) => {
+  await q.releaseOrder.run(String(req.body.orderId || ""), req.session.email);
   res.json({ success: true });
 });
 
@@ -786,48 +805,48 @@ function settleOrder(orderId, method, paymentId) {
   return settling.get(orderId);
 }
 
-const insertBookingWithSeats = db.transaction((booking, seats) => {
-  insertBooking.run(bookingRow(booking));
-  seats.forEach(seat => insertSeat.run(booking.pnr, booking.travelDate, booking.trainId, seat));
+const insertBookingWithSeats = transaction(async (booking, seats) => {
+  await insertBooking.run(bookingRow(booking));
+  for (const seat of seats) await insertSeat.run(booking.pnr, booking.travelDate, booking.trainId, seat);
 });
 
 async function doSettle(orderId, method, paymentId) {
   let clash = null, order;
   const now = new Date().toISOString();
 
-  const settle = db.transaction(() => {
-    order = getOrder(orderId);
+  const settle = transaction(async () => {
+    order = await getOrder(orderId);
     if (order.status === "settled") return order.result;
     if (order.status !== "pending") return PROCESSING;
 
-    const done = settledPayment(paymentId);
+    const done = await settledPayment(paymentId);
     let result;
     if (done && done.booking) result = publicResult(done.booking);
     else if (done) result = { success: true, balance: done.user.cardBalance || 0 };
     if (result) {
-      q.claimOrder.run(orderId);
-      q.finishOrder.run(JSON.stringify(result), null, orderId);
+      await q.claimOrder.run(orderId);
+      await q.finishOrder.run(JSON.stringify(result), null, orderId);
       return result;
     }
 
-    if (!q.claimOrder.run(orderId).changes) return PROCESSING;
+    if (!(await q.claimOrder.run(orderId)).changes) return PROCESSING;
     const email = order.email;
     const paid = method === "metrocard" ? order.metroCardAmount : order.amount;
 
     if (order.purpose === "recharge") {
-      q.credit.run(order.amount, email);
-      insertTxn.run({ email, type: "recharge", amount: order.amount, method, paymentId, pnr: null, at: now });
-      result = { success: true, balance: q.balance.get(email) };
-      q.finishOrder.run(JSON.stringify(result), null, orderId);
+      await q.credit.run(order.amount, email);
+      await insertTxn.run({ email, type: "recharge", amount: order.amount, method, paymentId, pnr: null, at: now });
+      result = { success: true, balance: Number(await q.balance.get(email)) };
+      await q.finishOrder.run(JSON.stringify(result), null, orderId);
       return result;
     }
 
     const d = order.draft;
-    const taken = takenSeats(d.date, d.dep.trainId, d.timeSlot, email);
+    const taken = await takenSeats(d.date, d.dep.trainId, d.timeSlot, email);
     clash = d.seats.filter(s => taken.has(s));
     if (clash.length) return null; // stays "settling" until the refund is recorded
 
-    const pnr = generatePNR(email);
+    const pnr = await generatePNR(email);
     const booking = {
       pnr,
       userEmail: email,
@@ -858,27 +877,27 @@ async function doSettle(orderId, method, paymentId) {
     if (method === "metrocard") {
       // Only debits when the balance still covers the fare; otherwise the
       // whole settlement (including the claim) rolls back
-      if (!q.debit.run({ amount: paid, email }).changes) {
-        throw new Reject({ success: false, message: `Metro Card balance is ₹${q.balance.get(email)}. Recharge or pick another method.` });
+      if (!(await q.debit.run({ amount: paid, email })).changes) {
+        throw new Reject({ success: false, message: `Metro Card balance is ₹${Number(await q.balance.get(email))}. Recharge or pick another method.` });
       }
-      insertTxn.run({ email, type: "ticket", amount: -paid, method: null, paymentId: null, pnr, at: now });
+      await insertTxn.run({ email, type: "ticket", amount: -paid, method: null, paymentId: null, pnr, at: now });
     }
     try {
-      insertBookingWithSeats(booking, d.seats); // savepoint; the unique seat index is the backstop
+      await insertBookingWithSeats(booking, d.seats); // savepoint; the unique seat index is the backstop
     } catch (err) {
-      if (err.code !== "SQLITE_CONSTRAINT_UNIQUE") throw err;
+      if (!isUniqueViolation(err)) throw err;
       clash = d.seats;
       if (method === "metrocard") throw new Reject({ success: false, message: `Seat ${clash.join(", ")} was taken by another passenger. You have not been charged.` });
       return null;
     }
     result = publicResult(booking);
-    q.finishOrder.run(JSON.stringify(result), null, orderId);
+    await q.finishOrder.run(JSON.stringify(result), null, orderId);
     return result;
   });
 
   let result;
   try {
-    result = settle();
+    result = await settle();
   } catch (err) {
     if (err instanceof Reject) return err.body;
     throw err;
@@ -886,13 +905,13 @@ async function doSettle(orderId, method, paymentId) {
   if (result) return result;
 
   const { refund, result: refused } = await refundClash(orderId, order, method, paymentId, clash);
-  q.finishOrder.run(JSON.stringify(refused), refund ? JSON.stringify(refund) : null, orderId);
+  await q.finishOrder.run(JSON.stringify(refused), refund ? JSON.stringify(refund) : null, orderId);
   return refused;
 }
 
 app.post("/payments/verify", requireLogin, async (req, res) => {
   const orderId = String(req.body.orderId || "");
-  const order = getOrder(orderId);
+  const order = await getOrder(orderId);
   const expired = { success: false, message: "Payment session expired. Please start again." };
   if (!order || order.email !== req.session.email) return res.json(expired);
   // The webhook (or a double tap) got here first
@@ -908,7 +927,7 @@ app.post("/payments/verify", requireLogin, async (req, res) => {
 
   if (method === "metrocard") {
     if (order.purpose !== "ticket") return res.json({ success: false, message: "Use UPI, card or net banking to recharge." });
-    const balance = getUser(req.session.email).cardBalance || 0;
+    const balance = (await getUser(req.session.email)).cardBalance || 0;
     if (balance < order.metroCardAmount) {
       return res.json({ success: false, message: `Metro Card balance is ₹${balance}. Recharge or pick another method.` });
     }
@@ -929,17 +948,17 @@ app.post("/payments/webhook", async (req, res) => {
   const payment = req.body.payload && req.body.payload.payment && req.body.payload.payment.entity;
   if (!payment || !payment.id) return res.json({ success: true });
   const orderId = String(payment.order_id || "");
-  const order = getOrder(orderId);
+  const order = await getOrder(orderId);
 
   if (req.body.event === "payment.failed") {
     // The buyer can retry in the same checkout, so the hold stays until it expires or is cancelled
-    if (order) q.orderError.run(payment.error_description || "Payment failed", orderId);
+    if (order) await q.orderError.run(payment.error_description || "Payment failed", orderId);
     return res.json({ success: true });
   }
   if (req.body.event !== "payment.captured") return res.json({ success: true });
 
   if (!order) {
-    if (!settledPayment(payment.id)) {
+    if (!(await settledPayment(payment.id))) {
       console.error(`REVIEW NEEDED: captured payment ${payment.id} (₹${payment.amount / 100}) for unknown order ${payment.order_id}.`);
     }
     return res.json({ success: true });
@@ -951,31 +970,31 @@ app.post("/payments/webhook", async (req, res) => {
 });
 
 // ---------- BOOKINGS ----------
-app.get("/my-bookings", requireLogin, (req, res) => {
-  const bookings = q.bookingsByUser.all(req.session.email)
+app.get("/my-bookings", requireLogin, async (req, res) => {
+  const bookings = (await q.bookingsByUser.all(req.session.email))
     .map(toBooking)
     .map(({ userEmail, ...b }) => ({ ...b, departAt: b.departAt || Date.parse(b.bookedAt) }))
     .sort((a, b) => b.departAt - a.departAt);
   res.json({ success: true, bookings });
 });
 
-app.get("/check-pnr", (req, res) => {
+app.get("/check-pnr", async (req, res) => {
   const pnr = String(req.query.pnr || "").trim().toUpperCase();
-  const booking = toBooking(q.bookingByPnr.get(pnr));
+  const booking = toBooking(await q.bookingByPnr.get(pnr));
   if (!booking) return res.json({ success: false, message: "PNR not found" });
   const { userEmail, payment, ...publicBooking } = booking;
   res.json({ success: true, booking: publicBooking });
 });
 
 // Cancel before departure; the fare is refunded to the Metro Card
-app.post("/cancel-booking", requireLogin, (req, res) => {
+app.post("/cancel-booking", requireLogin, async (req, res) => {
   const pnr = String(req.body.pnr || "").trim().toUpperCase();
   const email = req.session.email;
 
   // Status change, seat release and refund commit together; the
   // "status = 'Confirmed'" guard stops a booking being refunded twice.
-  const cancel = db.transaction(() => {
-    const booking = toBooking(q.bookingByPnr.get(pnr));
+  const cancel = transaction(async () => {
+    const booking = toBooking(await q.bookingByPnr.get(pnr));
     if (!booking || booking.userEmail !== email) throw new Reject({ success: false, message: "Booking not found." });
     if (booking.status !== "Confirmed") throw new Reject({ success: false, message: "This booking is already cancelled." });
     if (!booking.departAt || booking.departAt <= Date.now()) {
@@ -985,17 +1004,17 @@ app.post("/cancel-booking", requireLogin, (req, res) => {
     booking.status = "Cancelled";
     booking.cancelledAt = new Date().toISOString();
     const { userEmail, ...data } = booking;
-    if (!q.cancelBooking.run(JSON.stringify(data), pnr).changes) {
+    if (!(await q.cancelBooking.run(JSON.stringify(data), pnr)).changes) {
       throw new Reject({ success: false, message: "This booking is already cancelled." });
     }
-    q.releaseSeats.run(pnr);
-    q.credit.run(booking.price, email);
-    insertTxn.run({ email, type: "refund", amount: booking.price, method: null, paymentId: null, pnr, at: booking.cancelledAt });
-    return { refund: booking.price, balance: q.balance.get(email) };
+    await q.releaseSeats.run(pnr);
+    await q.credit.run(booking.price, email);
+    await insertTxn.run({ email, type: "refund", amount: booking.price, method: null, paymentId: null, pnr, at: booking.cancelledAt });
+    return { refund: booking.price, balance: Number(await q.balance.get(email)) };
   });
 
   try {
-    res.json({ success: true, ...cancel() });
+    res.json({ success: true, ...(await cancel()) });
   } catch (err) {
     if (err instanceof Reject) return res.json(err.body);
     throw err;
@@ -1003,23 +1022,23 @@ app.post("/cancel-booking", requireLogin, (req, res) => {
 });
 
 // ---------- SMART CARD ----------
-app.get("/card-balance", requireLogin, (req, res) => {
-  const user = getUser(req.session.email);
+app.get("/card-balance", requireLogin, async (req, res) => {
+  const user = await getUser(req.session.email);
   res.json({
     success: true,
     balance: user.cardBalance || 0,
-    transactions: q.recentTxns.all(user.email, 30).map(toTxn),
+    transactions: (await q.recentTxns.all(user.email, 30)).map(toTxn),
   });
 });
 
 // ---------- SUPPORT ----------
 const SUPPORT_TOPICS = new Set(["Booking issue", "Payment problem", "Metro Card", "Route query", "Refund request", "Other"]);
 
-app.post("/support", requireLogin, (req, res) => {
+app.post("/support", requireLogin, async (req, res) => {
   const message = String(req.body.message || "").trim().slice(0, 2000);
   if (message.length < 10) return res.json({ success: false, message: "Please write a little more so we can help." });
   const ticket = "SR" + String(Date.now()).slice(-6);
-  q.insertTicket.run(
+  await q.insertTicket.run(
     ticket,
     req.session.email,
     SUPPORT_TOPICS.has(req.body.topic) ? req.body.topic : "Other",
@@ -1032,6 +1051,10 @@ app.post("/support", requireLogin, (req, res) => {
 // Static frontend (after the API routes so /profile etc. aren't shadowed)
 app.use(express.static(FRONTEND_DIR));
 
-app.listen(PORT, () => {
-  console.log(`MetriGo running at http://localhost:${PORT} (payments: ${payments.provider} mode)`);
-});
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`MetriGo running at http://localhost:${PORT} (payments: ${payments.provider} mode)`);
+  });
+}
