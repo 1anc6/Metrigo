@@ -1,75 +1,276 @@
 ID,Name,Line
-0,Samaypur Badli,Yellow
-1,Rohini Sector 18-19,Yellow
-2,Haiderpur Badli Mor,Yellow
-3,Jahangirpuri,Yellow
-4,Adarsh Nagar,Yellow
-5,Azadpur,Yellow
-6,Model Town,Yellow
-7,GTB Nagar,Yellow
-8,Vishwavidyalaya,Yellow
-9,Vidhan Sabha,Yellow
-10,Civil Lines,Yellow
-11,Kashmere Gate,Yellow
-12,Chandni Chowk,Yellow
-13,Chawri Bazar,Yellow
-14,New Delhi,Yellow
-15,Rajiv Chowk,Yellow
-16,Patel Chowk,Yellow
-17,Central Secretariat,Yellow
-18,Udyog Bhawan,Yellow
-19,Lok Kalyan Marg,Yellow
-20,Jor Bagh,Yellow
-21,INA,Yellow
-22,AIIMS,Yellow
-23,Green Park,Yellow
-24,Hauz Khas,Yellow
-25,Malviya Nagar,Yellow
-26,Saket,Yellow
-27,Qutab Minar,Yellow
-28,Chhatarpur,Yellow
-29,Sultanpur,Yellow
-30,Ghitorni,Yellow
-31,Arjan Garh,Yellow
-32,Guru Dronacharya,Yellow
-33,Sikanderpur,Yellow
-34,MG Road,Yellow
-35,IFFCO Chowk,Yellow
-36,HUDA City Centre,Yellow
-37,Dwarka Sec 21,Blue
-38,Dwarka Sec 18-19,Blue
-39,Dwarka Sec 10,Blue
-40,Dwarka Sec 11-12,Blue
-41,Dwarka,Blue
-42,Dwarka Mor,Blue
-43,Nawada,Blue
-44,Uttam Nagar West,Blue
-45,Uttam Nagar East,Blue
-46,Janakpuri West,Blue
-47,Janakpuri East,Blue
-48,Tilak Nagar,Blue
-49,Subhash Nagar,Blue
-50,Tagore Garden,Blue
-51,Rajouri Garden,Blue
-52,Ramesh Nagar,Blue
-53,Moti Nagar,Blue
-54,Kirti Nagar,Blue
-55,Shadipur,Blue
-56,Patel Nagar,Blue
-57,Rajendra Place,Blue
-58,Karol Bagh,Blue
-59,Jhandewalan,Blue
-60,Ramakrishna Ashram Marg,Blue
-61,Rajiv Chowk,Blue
-62,Barakhamba Road,Blue
-63,Mandi House,Blue
-64,Pragati Maidan,Blue
-65,Indraprastha,Blue
-66,Yamuna Bank,Blue
-67,Laxmi Nagar,Blue
-68,Nirman Vihar,Blue
-69,Preet Vihar,Blue
-70,Karkarduma,Blue
-71,Anand Vihar,Blue
-72,Kaushambi,Blue
-73,Vaishali,Blue
+0,Rithala,red
+1,Rohini West,red
+2,Rohini East,red
+3,Madhuban Chowk,red
+4,Kohat Enclave,red
+5,Netaji Subhash Place,red
+6,Keshav Puram,red
+7,Kanhaiya Nagar,red
+8,Inderlok,red
+9,Shastri Nagar,red
+10,Pratap Nagar,red
+11,Pul Bangash,red
+12,Tis Hazari,red
+13,Kashmere Gate,red
+14,Shastri Park,red
+15,Seelampur,red
+16,Welcome,red
+17,Shahdara,red
+18,Mansarovar Park,red
+19,Jhilmil,red
+20,Dilshad Garden,red
+21,Shaheed Nagar,red
+22,Raj Bagh,red
+23,Rajendra Nagar,red
+24,Shyam Park,red
+25,Mohan Nagar,red
+26,Arthala,red
+27,Hindon River,red
+28,Shaheed Sthal,red
+29,Samaypur Badli,yellow
+30,Rohini Sector 18-19,yellow
+31,Haiderpur Badli Mor,yellow
+32,Jahangirpuri,yellow
+33,Adarsh Nagar,yellow
+34,Azadpur,yellow
+35,Model Town,yellow
+36,GTB Nagar,yellow
+37,Vishwa Vidyalaya,yellow
+38,Vidhan Sabha,yellow
+39,Civil Lines,yellow
+40,Kashmere Gate,yellow
+41,Chandni Chowk,yellow
+42,Chawri Bazaar,yellow
+43,New Delhi,yellow
+44,Rajiv Chowk,yellow
+45,Patel Chowk,yellow
+46,Central Secretariat,yellow
+47,Seva Teerth,yellow
+48,Lok Kalyan Marg,yellow
+49,Jor Bagh,yellow
+50,Dilli Haat - INA,yellow
+51,AIIMS,yellow
+52,Green Park,yellow
+53,Hauz Khas,yellow
+54,Malviya Nagar,yellow
+55,Saket,yellow
+56,Qutab Minar,yellow
+57,Chhatarpur,yellow
+58,Sultanpur,yellow
+59,Ghitorni,yellow
+60,Arjan Garh,yellow
+61,Guru Dronacharya,yellow
+62,Sikanderpur,yellow
+63,MG Road,yellow
+64,IFFCO Chowk,yellow
+65,Millennium City Centre Gurugram,yellow
+66,Dwarka Sector 21,blue
+67,Dwarka Sector 8,blue
+68,Dwarka Sector 9,blue
+69,Dwarka Sector 10,blue
+70,Dwarka Sector 11,blue
+71,Dwarka Sector 12,blue
+72,Dwarka Sector 13,blue
+73,Dwarka Sector 14,blue
+74,Dwarka,blue
+75,Dwarka Mor,blue
+76,Nawada,blue
+77,Uttam Nagar West,blue
+78,Uttam Nagar East,blue
+79,Janakpuri West,blue
+80,Janakpuri East,blue
+81,Tilak Nagar,blue
+82,Subhash Nagar,blue
+83,Tagore Garden,blue
+84,Rajouri Garden,blue
+85,Ramesh Nagar,blue
+86,Moti Nagar,blue
+87,Kirti Nagar,blue
+88,Shadipur,blue
+89,Patel Nagar,blue
+90,Rajendra Place,blue
+91,Karol Bagh,blue
+92,Jhandewalan,blue
+93,Ramakrishna Ashram Marg,blue
+94,Rajiv Chowk,blue
+95,Barakhambha Road,blue
+96,Mandi House,blue
+97,Supreme Court,blue
+98,Indraprastha,blue
+99,Yamuna Bank,blue
+100,Akshardham,blue
+101,Mayur Vihar - I,blue
+102,Mayur Vihar Extension,blue
+103,New Ashok Nagar,blue
+104,Noida Sector 15,blue
+105,Noida Sector 16,blue
+106,Noida Sector 18,blue
+107,Botanical Garden,blue
+108,Noida Golf Course,blue
+109,Noida City Centre,blue
+110,Noida Sector 34,blue
+111,Noida Sector 52,blue
+112,Noida Sector 61,blue
+113,Noida Sector 59,blue
+114,Noida Sector 62,blue
+115,Noida Electronic City,blue
+116,Yamuna Bank,bluebranch
+117,Laxmi Nagar,bluebranch
+118,Nirman Vihar,bluebranch
+119,Preet Vihar,bluebranch
+120,Karkarduma,bluebranch
+121,Anand Vihar,bluebranch
+122,Kaushambi,bluebranch
+123,Vaishali,bluebranch
+124,Inderlok,green
+125,Ashok Park Main,green
+126,Punjabi Bagh,green
+127,Punjabi Bagh West,green
+128,Shivaji Park,green
+129,Madipur,green
+130,Paschim Vihar East,green
+131,Paschim Vihar West,green
+132,Peeragarhi,green
+133,Udyog Nagar,green
+134,Surajmal Stadium,green
+135,Nangloi,green
+136,Nangloi Railway Station,green
+137,Rajdhani Park,green
+138,Mundka,green
+139,Mundka Industrial Area,green
+140,Ghevra,green
+141,Tikri Kalan,green
+142,Tikri Border,green
+143,Pandit Shree Ram Sharma,green
+144,Bahadurgarh City,green
+145,Brigadier Hoshiyar Singh,green
+146,Kirti Nagar,greenbranch
+147,Satguru Ramsingh Marg,greenbranch
+148,Ashok Park Main,greenbranch
+149,Kashmere Gate,violet
+150,Lal Quila,violet
+151,Jama Masjid,violet
+152,Delhi Gate,violet
+153,ITO,violet
+154,Mandi House,violet
+155,Janpath,violet
+156,Central Secretariat,violet
+157,Khan Market,violet
+158,Jawaharlal Nehru Stadium,violet
+159,Jangpura,violet
+160,Lajpat Nagar,violet
+161,Moolchand,violet
+162,Kailash Colony,violet
+163,Nehru Place,violet
+164,Kalkaji Mandir,violet
+165,Govind Puri,violet
+166,Harkesh Nagar Okhla,violet
+167,Jasola Apollo,violet
+168,Sarita Vihar,violet
+169,Mohan Estate,violet
+170,Tughlakabad,violet
+171,Badarpur,violet
+172,Sarai,violet
+173,NHPC Chowk,violet
+174,Mewala Maharajpur,violet
+175,Sector 28,violet
+176,Badhkal Mor,violet
+177,Old Faridabad,violet
+178,Neelam Chowk Ajronda,violet
+179,Bata Chowk,violet
+180,Escorts Mujesar,violet
+181,Sant Surdas (Sihi),violet
+182,Raja Nahar Singh,violet
+183,Majlis Park,pink
+184,Azadpur,pink
+185,Shalimar Bagh,pink
+186,Netaji Subhash Place,pink
+187,Shakurpur,pink
+188,Punjabi Bagh West,pink
+189,ESI - Basaidarapur,pink
+190,Rajouri Garden,pink
+191,Mayapuri,pink
+192,Naraina Vihar,pink
+193,Delhi Cantt,pink
+194,Durgabai Deshmukh South Campus,pink
+195,Sir M. Vishweshwaraiah Moti Bagh,pink
+196,Bhikaji Cama Place,pink
+197,Sarojini Nagar,pink
+198,Dilli Haat - INA,pink
+199,South Extension,pink
+200,Lajpat Nagar,pink
+201,Vinobapuri,pink
+202,Ashram,pink
+203,Sarai Kale Khan - Nizamuddin,pink
+204,Mayur Vihar - I,pink
+205,Shree Ram Mandir Mayur Vihar,pink
+206,Trilokpuri Sanjay Lake,pink
+207,East Vinod Nagar - Mayur Vihar - II,pink
+208,Mandawali - West Vinod Nagar,pink
+209,IP Extension,pink
+210,Anand Vihar,pink
+211,Karkarduma,pink
+212,Karkarduma Court,pink
+213,Krishna Nagar,pink
+214,East Azad Nagar,pink
+215,Welcome,pink
+216,Jaffrabad,pink
+217,Maujpur-Babarpur,pink
+218,Gokulpuri,pink
+219,Johri Enclave,pink
+220,Shiv Vihar,pink
+221,Maujpur-Babarpur,pinkbranch
+222,Yamuna Vihar,pinkbranch
+223,Bhajanpura,pinkbranch
+224,Khajuri Khas,pinkbranch
+225,Nanaksar - Sonia Vihar,pinkbranch
+226,Soorghat,pinkbranch
+227,Jagatpur - Wazirabad,pinkbranch
+228,Jharoda Majra,pinkbranch
+229,Burari,pinkbranch
+230,Majlis Park,pinkbranch
+231,Botanical Garden,magenta
+232,Okhla Bird Sanctuary,magenta
+233,Kalindi Kunj,magenta
+234,Jasola Vihar Shaheen Bagh,magenta
+235,Okhla Vihar,magenta
+236,Jamia Millia Islamia,magenta
+237,Sukhdev Vihar,magenta
+238,Okhla NSIC,magenta
+239,Kalkaji Mandir,magenta
+240,Nehru Enclave,magenta
+241,Greater Kailash,magenta
+242,Chirag Delhi,magenta
+243,Panchsheel Park,magenta
+244,Hauz Khas,magenta
+245,IIT Delhi,magenta
+246,RK Puram,magenta
+247,Munirka,magenta
+248,Vasant Vihar,magenta
+249,Shankar Vihar,magenta
+250,Terminal 1 IGI Airport,magenta
+251,Sadar Bazar Cantonment,magenta
+252,Palam,magenta
+253,Dashrath Puri,magenta
+254,Dabri Mor - Janakpuri South,magenta
+255,Janakpuri West,magenta
+256,Krishna Park Extension,magenta
+257,Deepali Chowk,magentabranch
+258,Madhuban Chowk,magentabranch
+259,North Pitampura - Prashant Vihar,magentabranch
+260,Haiderpur Village,magentabranch
+261,Haiderpur Badli Mor,magentabranch
+262,Bhalaswa,magentabranch
+263,Majlis Park,magentabranch
+264,Dwarka,grey
+265,Nangli,grey
+266,Najafgarh,grey
+267,Dhansa Bus Stand,grey
+268,Yashobhoomi Dwarka Sector 25,airport
+269,Dwarka Sector 21,airport
+270,IGI Airport,airport
+271,Delhi Aerocity,airport
+272,Dhaula Kuan,airport
+273,Shivaji Stadium,airport
+274,New Delhi,airport

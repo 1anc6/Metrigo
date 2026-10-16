@@ -1,6 +1,6 @@
 # MetriGo
 
-A smart metro booking web app for the Delhi Metro, built as a student portfolio project. It is not affiliated with DMRC: tickets aren't valid for travel and payments run in test mode. Find the shortest route, pick a train and your seats, pay, and carry a QR ticket that works offline. A live map shows every train moving along the Yellow and Blue lines.
+A smart metro booking web app for the Delhi Metro, built as a student portfolio project. It is not affiliated with DMRC: tickets aren't valid for travel and payments run in test mode. Find the shortest route, pick a train and your seats, pay, and carry a QR ticket that works offline. A live map shows every train moving across all nine DMRC lines: Red, Yellow, Blue, Green, Violet, Pink, Magenta, Grey and the Airport Express, with their branches.
 
 Built with Node.js, Express and SQLite (Turso in production) on the backend and plain HTML, CSS and JavaScript on the frontend. No frontend framework or build step.
 
@@ -126,7 +126,7 @@ FrontEnd/
 
 ## Limitations
 
-- Only the Yellow and Blue lines are included, with approximate station coordinates.
+- Station order and coordinates come from OpenStreetMap route relations (© OpenStreetMap contributors, ODbL), so the network may lag behind real openings. Rapid Metro Gurugram and Noida's Aqua Line are separate networks and not included. Distances are straight-line × 1.15, not track lengths, and the Airport Express uses normal fares.
 - Live train positions are simulated from the timetable, not real-time feeds.
 - Payments are simulated unless Razorpay keys are configured.
 - This is a student project, not an official Delhi Metro app. Third-party licences are listed in `THIRD_PARTY_NOTICES.md`.

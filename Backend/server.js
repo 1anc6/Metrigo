@@ -58,6 +58,9 @@ const stations = readCSV(path.join(DATA_DIR, "stations.csv"))
   .map(s => ({ id: Number(s.ID), name: s.Name, line: s.Line }));
 const stationById = new Map(stations.map(s => [s.id, s]));
 const stationByName = new Map(stations.map(s => [s.name.toLowerCase(), s]));
+// An interchange has one node per line; a trip may start or end on any of them
+const idsByName = new Map();
+stations.forEach(s => idsByName.set(s.name, [...(idsByName.get(s.name) || []), s.id]));
 
 const adjacency = new Map(stations.map(s => [s.id, []]));
 readCSV(path.join(DATA_DIR, "edges.csv")).forEach(e => {
@@ -70,10 +73,18 @@ readCSV(path.join(DATA_DIR, "edges.csv")).forEach(e => {
 // =============================
 // DIJKSTRA — O((V + E) log V) with a binary heap
 // =============================
-function dijkstra(src, dest) {
-  const dist = new Map([[src, 0]]);
+// Interchange edges (same station, two lines) are 0 km in edges.csv. The
+// search charges each change this much, so it doesn't hop lines to save a
+// few hundred metres: roughly the walk plus wait of a change, at metro speed.
+const TRANSFER_PENALTY_KM = 5;
+
+function dijkstra(srcName, destName) {
+  const sources = idsByName.get(srcName), targets = new Set(idsByName.get(destName));
+  const dist = new Map(sources.map(id => [id, 0])); // search cost: km + transfer penalties
+  const km = new Map(sources.map(id => [id, 0]));   // real distance travelled
   const prev = new Map();
-  const heap = [[0, src]];
+  const heap = sources.map(id => [0, id]);
+  let dest = null;
 
   const push = item => {
     heap.push(item);
@@ -107,24 +118,25 @@ function dijkstra(src, dest) {
   while (heap.length) {
     const [d, u] = pop();
     if (d > dist.get(u)) continue;
-    if (u === dest) break;
+    if (targets.has(u)) { dest = u; break; }
     for (const { to, dist: w } of adjacency.get(u)) {
-      const nd = d + w;
+      const nd = d + (w === 0 ? TRANSFER_PENALTY_KM : w);
       if (nd < (dist.has(to) ? dist.get(to) : Infinity)) {
         dist.set(to, nd);
+        km.set(to, km.get(u) + w);
         prev.set(to, u);
         push([nd, to]);
       }
     }
   }
 
-  if (!dist.has(dest)) return null;
+  if (dest === null) return null;
   const pathIds = [];
   for (let at = dest; at !== undefined; at = prev.get(at)) pathIds.unshift(at);
   // Interchanges appear once per line (e.g. Rajiv Chowk), so collapse repeats
   const names = pathIds.map(id => stationById.get(id).name)
     .filter((name, i, arr) => i === 0 || name !== arr[i - 1]);
-  return { distance: dist.get(dest), path: names };
+  return { distance: km.get(dest), path: names };
 }
 
 // Distance-slab fare (Delhi Metro style)
@@ -141,7 +153,7 @@ function findRoute(fromName, toName) {
   const from = stationByName.get(String(fromName || "").trim().toLowerCase());
   const to = stationByName.get(String(toName || "").trim().toLowerCase());
   if (!from || !to || from.name === to.name) return null;
-  const result = dijkstra(from.id, to.id);
+  const result = dijkstra(from.name, to.name);
   if (!result) return null;
   const distance = Math.round(result.distance * 10) / 10;
   return {

@@ -942,3 +942,7 @@ body.has-notice .auth-inner { padding-bottom: 130px; }
 body.has-notice .legal { padding-bottom: 140px; }
 @media (min-width: 1024px) { body.has-notice .auth-inner { padding-bottom: 34px; } }
 body.has-notice .app:not(.legal) { padding-bottom: calc(var(--tab-h) + 130px); }
+
+/* Line filters: one button per line, scrolls sideways on phones */
+.seg.lines { overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.seg.lines button { flex: 0 0 auto; padding: 0 14px; }

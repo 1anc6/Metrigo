@@ -40,10 +40,8 @@
   </div>
 
   <div class="col">
-  <div class="seg" id="lineSeg" role="group" aria-label="Filter lines">
+  <div class="seg lines" id="lineSeg" role="group" aria-label="Filter lines">
     <button type="button" data-line="" aria-pressed="true"><span data-icon="train"></span>All</button>
-    <button type="button" data-line="yellow" aria-pressed="false"><span class="dot" style="background:var(--yellow)"></span>Yellow</button>
-    <button type="button" data-line="blue" aria-pressed="false"><span class="dot" style="background:var(--blue)"></span>Blue</button>
   </div>
 
   <section class="card pad" id="trainCard" hidden></section>
@@ -77,7 +75,10 @@ MG.stationField($("#stationInput"), { title: "Show live arrivals at", eyebrow: "
 let station = MG.matchStation(MG.params.get("station")) || "Rajiv Chowk";
 let filter = null, trains = [], stationMarker = null;
 
-const ALL = [...MetroSim.LINES.yellow.coords, ...MetroSim.LINES.blue.coords];
+const ALL = Object.values(MetroSim.LINES).flatMap(l => l.coords);
+const groupCoords = g => MetroSim.GROUPS[g].lines.flatMap(id => MetroSim.LINES[id].coords);
+$("#lineSeg").insertAdjacentHTML("beforeend", Object.values(MetroSim.GROUPS).map(g =>
+  `<button type="button" data-line="${g.id}" aria-pressed="false"><span class="dot" style="background:${g.color}"></span>${esc(g.name)}</button>`).join(""));
 const map = MG.map.create("map", { scroll: false });
 const layers = MG.map.network(map, { onStation: name => setStation(name) });
 map.fitBounds(L.latLngBounds(ALL), { padding: [24, 24] });
@@ -124,14 +125,14 @@ function paintTrain(pan) {
 function setStation(name) {
   station = name;
   $("#stationName").textContent = name;
-  $("#stationLines").innerHTML = MG.stationLines(name).map(l => `<span class="chip"><span class="line-dot ${l}"></span>${MetroSim.LINES[l].name.split(" ")[0]}</span>`).join("");
+  $("#stationLines").innerHTML = MG.stationGroups(name).map(g => `<span class="chip"><span class="line-dot ${g}"></span>${esc(MetroSim.GROUPS[g].name)}</span>`).join("");
   if (stationMarker) map.removeLayer(stationMarker);
   stationMarker = L.marker(MetroSim.stationIndex[name][0].coord, { icon: MG.map.endpointIcon("end"), zIndexOffset: 1000 }).addTo(map);
   paintArrivals();
 }
 
 function paintArrivals() {
-  const list = MetroSim.nextArrivals(station, Date.now(), 3).filter(a => !filter || a.line === filter).slice(0, 5);
+  const list = MetroSim.nextArrivals(station, Date.now(), 3).filter(a => !filter || MG.groupOf(a.line) === filter).slice(0, 5);
   $("#arrivals").innerHTML = list.length ? list.map(a => `
     <button class="arrival" data-train="${esc(a.trainId)}">
       <span class="bar" style="background:${MG.lineColor(a.line)}"></span>
@@ -145,19 +146,19 @@ function paintArrivals() {
 function paintService() {
   const min = MetroSim.istParts(Date.now()).minutes;
   const peak = (min >= 480 && min < 660) || (min >= 1020 && min < 1260);
-  const n = id => trains.filter(t => t.line === id).length;
+  const stops = new Set((filter ? MetroSim.GROUPS[filter].lines : Object.keys(MetroSim.LINES)).flatMap(id => MetroSim.LINES[id].names));
   $("#service").innerHTML = `
-    <div class="stat"><div class="k">Yellow</div><div class="v">${n("yellow")}</div></div>
-    <div class="stat"><div class="k">Blue</div><div class="v">${n("blue")}</div></div>
+    <div class="stat"><div class="k">Stations</div><div class="v">${stops.size}</div></div>
+    <div class="stat"><div class="k">Trains</div><div class="v">${trains.length}</div></div>
     <div class="stat"><div class="k">Every</div><div class="v">${trains.length ? (peak ? 3 : 5) + "<small> min</small>" : "—"}</div></div>`;
 }
 
 $$("#lineSeg button").forEach(b => b.addEventListener("click", () => {
   $$("#lineSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
   filter = b.dataset.line || null;
-  Object.entries(layers).forEach(([lid, layer]) => (!filter || filter === lid) ? layer.addTo(map) : map.removeLayer(layer));
+  Object.entries(layers).forEach(([lid, layer]) => (!filter || MG.groupOf(lid) === filter) ? layer.addTo(map) : map.removeLayer(layer));
+  map.fitBounds(L.latLngBounds(filter ? groupCoords(filter) : ALL), { padding: [24, 24] });
   live.setFilter(filter);
-  map.fitBounds(L.latLngBounds(filter ? MetroSim.LINES[filter].coords : ALL), { padding: [24, 24] });
   paintArrivals();
 }));
 

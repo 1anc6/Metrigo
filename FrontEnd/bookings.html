@@ -236,7 +236,7 @@ function paintResults() {
             <span class="chip"><span class="line-dot ${d.line}"></span>${esc(d.trainId)}</span>
             <span class="chip">${icon("clock")}${d.durationMin} min</span>
             ${crowdChip(d.crowd)}
-            ${d.legs.length > 1 ? `<span class="chip">${icon("route")}via ${esc(d.legs[1].from)}</span>` : ""}
+            ${d.legs.length > 1 ? `<span class="chip" title="Change at ${esc(d.legs.slice(1).map(l => l.from).join(", "))}">${icon("route")}${d.legs.length === 2 ? "via " + esc(d.legs[1].from) : `${d.legs.length - 1} changes`}</span>` : ""}
           </div>
           <div class="price"><b>${rupee(d.perPassenger * state.count)}</b><small>${rupee(d.perPassenger)} × ${state.count}${SLOTS[d.timeSlot] && SLOTS[d.timeSlot].multiplier !== 1 ? ` · ×${SLOTS[d.timeSlot].multiplier} ${esc(SLOTS[d.timeSlot].label.toLowerCase())}` : ""}</small></div>
         </div>

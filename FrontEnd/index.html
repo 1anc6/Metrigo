@@ -37,10 +37,8 @@
       <button aria-label="Search"><span data-icon="search"></span></button>
     </form>
   
-    <div class="seg" id="lineSeg" role="group" aria-label="Filter by line">
+    <div class="seg lines" id="lineSeg" role="group" aria-label="Filter by line">
       <button type="button" data-line="" aria-pressed="true"><span data-icon="train"></span>All</button>
-      <button type="button" data-line="yellow" aria-pressed="false"><span class="dot" style="background:var(--yellow)"></span>Yellow</button>
-      <button type="button" data-line="blue" aria-pressed="false"><span class="dot" style="background:var(--blue)"></span>Blue</button>
     </div>
   </div>
 
@@ -57,6 +55,7 @@
 <script src="assets/vendor/leaflet/leaflet.js"></script>
 <script src="assets/js/metro-sim.js"></script>
 <script src="assets/js/core.js"></script>
+<script src="assets/js/payment.js"></script>
 <script>
 const { $, $$, icon, esc, api, rupee } = MG;
 MG.shell("home");
@@ -69,11 +68,15 @@ MG.stationField($("#q"), {
   },
 });
 
+// Popular trips that between them touch every line
 const ROUTES = [
-  ["Rajiv Chowk", "Hauz Khas"], ["Kashmere Gate", "Vaishali"], ["Dwarka", "Karol Bagh"],
-  ["New Delhi", "HUDA City Centre"], ["Samaypur Badli", "Saket"], ["Janakpuri West", "Mandi House"],
-  ["AIIMS", "Chandni Chowk"], ["Rajouri Garden", "Laxmi Nagar"],
+  ["Rajiv Chowk", "Hauz Khas"], ["New Delhi", "IGI Airport"], ["Kashmere Gate", "Noida City Centre"],
+  ["Janakpuri West", "Botanical Garden"], ["Rithala", "Shahdara"], ["Central Secretariat", "Nehru Place"],
+  ["Dilli Haat - INA", "Lajpat Nagar"], ["Inderlok", "Mundka"], ["Dwarka", "Najafgarh"],
+  ["Millennium City Centre Gurugram", "Saket"],
 ];
+$("#lineSeg").insertAdjacentHTML("beforeend", Object.values(MetroSim.GROUPS).map(g =>
+  `<button type="button" data-line="${g.id}" aria-pressed="false"><span class="dot" style="background:${g.color}"></span>${esc(g.name)}</button>`).join(""));
 
 let me = null, routes = [], line = "", query = "";
 
@@ -84,12 +87,12 @@ MG.me().then(u => {
 });
 
 // Routes never change, so they are fetched once and kept: Home paints instantly
-const ROUTES_KEY = "mg-routes-v1";
+const ROUTES_KEY = "mg-routes-v2"; // bump when ROUTES or the network changes
 function useRoutes(list) {
   routes = list.map(r => {
     const legs = MetroSim.legsForPath(r.path) || [];
     const dep = MetroSim.departures(r.path, 540, 1440, 1)[0];
-    return { ...r, lines: [...new Set(legs.map(l => l.line))], minutes: dep ? dep.durationMin : null };
+    return { ...r, lines: [...new Set(legs.map(l => MG.groupOf(l.line)))], minutes: dep ? dep.durationMin : null };
   });
   paint();
 }

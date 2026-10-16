@@ -9,6 +9,8 @@ Everything below is served from this repository. Licence texts are in `FrontEnd/
 | [jsPDF](https://github.com/parallax/jsPDF) | 2.5.1 | MIT | `FrontEnd/assets/js/vendor/jspdf.umd.min.js` |
 | [qrcodejs](https://github.com/davidshimjs/qrcodejs) | 1.0.0 | MIT | `FrontEnd/assets/js/vendor/qrcode.min.js` |
 
+Station names, order and coordinates (`Backend/data/stations.csv`, `edges.csv` and the `LINES` table in `FrontEnd/assets/js/metro-sim.js`) are derived from OpenStreetMap route relations, © OpenStreetMap contributors. That derived data is available under the [Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+
 Map tiles are loaded from [OpenStreetMap](https://www.openstreetmap.org/copyright) (data © OpenStreetMap contributors, ODbL) under the OSM tile usage policy, and are attributed on every map.
 
 The photos `FrontEnd/metro.jpg` and `FrontEnd/login.jpg` were taken by the project author.

@@ -189,6 +189,9 @@
     return holder.querySelector("canvas").toDataURL("image/png");
   }
 
+  // Every leg after the first starts with a change of train
+  const changes = b => (b.legs || []).slice(1);
+
   const seatList = b => (b.seats || [b.seat]).filter(Boolean).join(", ") || "-";
 
   // A boarding-pass style PDF in the app's palette. Built-in PDF fonts have
@@ -201,8 +204,7 @@
     const measure = new jsPDF({ unit: "mm" });
     measure.setFont("helvetica", "bold"); measure.setFontSize(13.5);
     const fromLines = measure.splitTextToSize(b.from, 36), toLines = measure.splitTextToSize(b.to, 36);
-    const changeText = b.legs && b.legs.length > 1
-      ? `Change at ${b.legs[1].from} to the ${MetroSim.LINES[b.legs[1].line].name} towards ${b.legs[1].towards}` : "";
+    const changeText = changes(b).map(l => `Change at ${l.from} to the ${MG.lineLabel(l.line)} towards ${l.towards}.`).join(" ");
     measure.setFont("helvetica", "normal"); measure.setFontSize(7.5);
     const changeLines = changeText ? measure.splitTextToSize(changeText, W - 24) : [];
     const timesY = 51 + Math.max(fromLines.length, toLines.length) * 5.4;
@@ -213,7 +215,8 @@
     const doc = new jsPDF({ unit: "mm", format: [W, H], compress: true });
     const INK = [55, 56, 43], MUTED = [107, 108, 95], FAINT = [154, 155, 143];
     const BG = [231, 232, 228], CARD = [245, 245, 241], ACCENT = [153, 32, 23], OK = [63, 107, 58];
-    const lineRGB = b.line === "blue" ? [47, 127, 224] : [242, 194, 0];
+    const hex = MG.lineHex(b.line || "");
+    const lineRGB = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
     const state = MG.bookingState(b);
     const rs = n => "Rs. " + Number(n || 0).toLocaleString("en-IN");
     const date = b.travelDate
@@ -335,7 +338,7 @@
     const minutes = dep != null && arr != null ? ((arr - dep + 1440) % 1440) || 30 : 45;
     const stamp = d => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
     const esc = s => String(s).replace(/[\\,;]/g, c => "\\" + c).replace(/\n/g, "\\n");
-    const change = b.legs && b.legs.length > 1 ? ` · Change at ${b.legs[1].from}` : "";
+    const change = changes(b).length ? ` · Change at ${changes(b).map(l => l.from).join(", ")}` : "";
     return [
       "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//MetriGo//Ticket//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
       "BEGIN:VEVENT",
@@ -395,7 +398,7 @@
           </div>
         </div>
       </div>
-      ${b.legs && b.legs.length > 1 ? `<div class="notice" style="margin-top:14px">${MG.icon("route")}<span>Change at <b>${MG.esc(b.legs[1].from)}</b> to the ${MetroSim.LINES[b.legs[1].line].name} towards ${MG.esc(b.legs[1].towards)}.</span></div>` : ""}
+      ${changes(b).length ? `<div class="notice" style="margin-top:14px">${MG.icon("route")}<span>${changes(b).map(l => `Change at <b>${MG.esc(l.from)}</b> to the ${MG.esc(MG.lineLabel(l.line))} towards ${MG.esc(l.towards)}.`).join("<br>")}</span></div>` : ""}
       <div class="ticket-actions">
         <button class="btn ghost" id="tkPdf">${MG.icon("download")}PDF</button>
         <button class="btn ghost" id="tkShare">${MG.icon("share")}Share</button>

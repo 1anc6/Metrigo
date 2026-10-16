@@ -10,8 +10,18 @@
   MG.$ = (sel, root) => (root || document).querySelector(sel);
   MG.$$ = (sel, root) => [...(root || document).querySelectorAll(sel)];
   MG.params = new URLSearchParams(location.search);
-  MG.lineColor = id => (id === "blue" ? "var(--blue)" : "var(--yellow)");
-  MG.lineHex = id => (id === "blue" ? "#2F7FE0" : "#F2C200");
+  // Line colours come from metro-sim.js; .line-dot.<line or group id> classes are generated here
+  const lineOf = id => MetroSim.LINES[id] || MetroSim.GROUPS[id];
+  MG.lineHex = id => (lineOf(id) || { color: "#8A8F99" }).color;
+  MG.lineColor = MG.lineHex;
+  MG.groupOf = id => (MetroSim.LINES[id] ? MetroSim.LINES[id].group : id);
+  MG.lineLabel = id => { const l = MetroSim.LINES[id]; return l ? l.name + (l.branch ? ` (${l.branch})` : "") : id; };
+  (function lineStyles() {
+    const st = document.createElement("style");
+    st.textContent = [...Object.values(MetroSim.LINES), ...Object.values(MetroSim.GROUPS)]
+      .map(l => `.line-dot.${l.id}{background:${l.color}}`).join("");
+    document.head.appendChild(st);
+  })();
 
   MG.fmtDate = (dateStr, opts) =>
     new Date(dateStr + "T00:00:00").toLocaleDateString("en-IN", opts || { weekday: "long", day: "numeric", month: "long" });
@@ -462,6 +472,8 @@
     return MetroSim.stationNames().find(s => s.toLowerCase() === n) || null;
   };
   MG.stationLines = name => (MetroSim.stationIndex[name] || []).map(s => s.line);
+  // Distinct coloured lines at a station (a line and its branch count once)
+  MG.stationGroups = name => [...new Set(MG.stationLines(name).map(MG.groupOf))];
 
   // ---------- Station picker ----------
   // A sheet in the app's style instead of the browser's suggestion list:
@@ -505,12 +517,13 @@
       const taken = name === opts.exclude;
       const current = name === opts.current;
       const others = trackLine ? lines.filter(l => l !== trackLine) : [];
+      const groups = MG.stationGroups(name);
       const dots = trackLine
         ? `<span class="line-dot"></span>`
-        : lines.map(l => `<span class="line-dot ${l}"></span>`).join("");
+        : groups.map(g => `<span class="line-dot ${g}"></span>`).join("");
       const tag = trackLine && others.length
         ? `<span class="chip">${others.map(l => `<span class="line-dot ${l}"></span>`).join("")}Change</span>`
-        : !trackLine && lines.length > 1 ? `<span class="chip">Interchange</span>` : "";
+        : !trackLine && groups.length > 1 ? `<span class="chip">Interchange</span>` : "";
       return `<button type="button" class="pk-row${current ? " is-current" : ""}" role="option" aria-selected="${current}" data-name="${MG.esc(name)}" ${taken ? "disabled" : ""}>
         <span class="pk-dot">${dots}</span>
         <span class="pk-name">${highlight(name, q)}</span>
@@ -535,7 +548,7 @@
       const recent = MG.recentStations().filter(n => !favorites.includes(n));
       let html = section("Saved", favorites, MG.icon("bookmark")) + section("Recent", recent, MG.icon("clock"));
       Object.values(MetroSim.LINES).forEach(line => {
-        html += `<div class="pk-section"><span class="line-dot ${line.id}"></span>${line.name}<span class="pk-ends">${MG.esc(line.termini[0])} – ${MG.esc(line.termini[1])}</span></div>
+        html += `<div class="pk-section"><span class="line-dot ${line.id}"></span>${MG.esc(MG.lineLabel(line.id))}<span class="pk-ends">${MG.esc(line.termini[0])} – ${MG.esc(line.termini[1])}</span></div>
           <div class="pk-track" style="--lc:${line.color}">${line.names.map(n => row(n, "", line.id)).join("")}</div>`;
       });
       list.innerHTML = html;
@@ -698,18 +711,19 @@
       MG.map.keepSized(map);
       return map;
     },
-    // Line polylines + station dots; returns { layers: {yellow, blue} }
+    // Line polylines + station dots; returns { layers: { <line id>: layer } }
     network(map, opts = {}) {
       const layers = {};
       Object.values(MetroSim.LINES).forEach(line => {
         const g = L.layerGroup();
         L.polyline(line.coords, { color: line.color, weight: opts.weight || 4, opacity: opts.opacity ?? 0.9, lineCap: "round", lineJoin: "round" }).addTo(g);
         line.stations.forEach(([name, lat, lng]) => {
-          const multi = (MetroSim.stationIndex[name] || []).length > 1;
+          const groups = MG.stationGroups(name);
+          const multi = groups.length > 1;
           L.marker([lat, lng], {
             icon: L.divIcon({ className: "", html: `<div class="mg-station${multi ? " big" : ""}" style="--lc:${line.color}"></div>`, iconSize: multi ? [14, 14] : [10, 10], iconAnchor: multi ? [7, 7] : [5, 5] }),
             title: name, keyboard: false,
-          }).bindPopup(`<b>${MG.esc(name)}</b><br><span style="color:var(--text-2)">${multi ? "Interchange · Yellow & Blue" : line.name}</span>${opts.popupExtra ? opts.popupExtra(name) : ""}`)
+          }).bindPopup(`<b>${MG.esc(name)}</b><br><span style="color:var(--text-2)">${multi ? "Interchange · " + groups.map(g => MetroSim.GROUPS[g].name).join(", ") : MG.esc(MG.lineLabel(line.id))}</span>${opts.popupExtra ? opts.popupExtra(name) : ""}`)
             .on("click", () => opts.onStation && opts.onStation(name))
             .addTo(g);
         });
@@ -749,15 +763,19 @@
     let filter = null;
     const api = {
       focusId: null,
+      // f is a line group id (e.g. "blue" covers the Vaishali branch too)
       setFilter(f) { filter = f; api.tick(); },
       tick() {
         const now = Date.now();
-        const trains = MetroSim.livePositions(now).filter(t => !filter || t.line === filter);
+        const trains = MetroSim.livePositions(now).filter(t => !filter || MG.groupOf(t.line) === filter);
+        // Hundreds of trains run at peak: only draw the ones in view (plus a margin)
+        const view = map.getBounds().pad(0.25);
         const seen = new Set();
         trains.forEach(t => {
+          const focus = api.focusId === t.id;
+          if (!focus && !view.contains([t.lat, t.lng])) return;
           seen.add(t.id);
           let m = markers.get(t.id);
-          const focus = api.focusId === t.id;
           if (!m) {
             m = L.marker([t.lat, t.lng], { icon: MG.map.trainIcon(t.line, focus), zIndexOffset: 500, keyboard: false })
               .on("click", () => opts.onClick && opts.onClick(t.id))
@@ -768,9 +786,11 @@
             m.setLatLng([t.lat, t.lng]);
             if (m._focus !== focus) { m.setIcon(MG.map.trainIcon(t.line, focus)); m._focus = focus; }
           }
-          const tip = `<b>${t.id}</b> · to ${MG.esc(t.towards)}<br>Next: ${MG.esc(t.nextStation)} in ${MG.etaLabel(t.nextInMin)}`;
-          if (m.getTooltip()) m.setTooltipContent(tip);
-          else m.bindTooltip(tip, { direction: "top", offset: [0, -8] });
+          // Tooltip text is built only when it is showing
+          m._train = t;
+          if (!m.getTooltip()) {
+            m.bindTooltip(l => `<b>${l._train.id}</b> · to ${MG.esc(l._train.towards)}<br>Next: ${MG.esc(l._train.nextStation)} in ${MG.etaLabel(l._train.nextInMin)}`, { direction: "top", offset: [0, -8] });
+          } else if (m.isTooltipOpen()) m.getTooltip().update();
         });
         markers.forEach((m, id) => { if (!seen.has(id)) { map.removeLayer(m); markers.delete(id); } });
         if (opts.onTick) opts.onTick(trains);
