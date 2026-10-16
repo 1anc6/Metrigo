@@ -1,6 +1,6 @@
 # MetriGo
 
-A smart metro booking web app for the Delhi Metro. Find the shortest route, pick a train and your seats, pay, and carry a QR ticket that works offline. A live map shows every train moving along the Yellow and Blue lines.
+A smart metro booking web app for the Delhi Metro, built as a student portfolio project. It is not affiliated with DMRC: tickets aren't valid for travel and payments run in test mode. Find the shortest route, pick a train and your seats, pay, and carry a QR ticket that works offline. A live map shows every train moving along the Yellow and Blue lines.
 
 Built with Node.js, Express and SQLite (Turso in production) on the backend and plain HTML, CSS and JavaScript on the frontend. No frontend framework or build step.
 
@@ -16,6 +16,7 @@ Built with Node.js, Express and SQLite (Turso in production) on the backend and 
 - **Metro Card** wallet with top-ups and transaction history
 - **Installable app (PWA)**: add it to your home screen, and your tickets open even without signal
 - **Responsive design**: mobile-first, with a sidebar layout on desktop. Neumorphic look with light and dark themes
+- **Privacy and legal**: privacy, terms, refund and cookie pages; consent and an age confirmation recorded at sign-up; self-serve account deletion; no trackers, and fonts and libraries are self-hosted so pages contact no third party except OpenStreetMap for map tiles
 
 ## Quick start
 
@@ -47,6 +48,8 @@ Everything works out of the box. Set these environment variables to switch on th
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Email password-reset codes. Without SMTP, codes are printed in the server console for development |
 
 In **test mode** no money moves: the checkout simulates the payment so you can try the full booking flow.
+
+The privacy policy, terms and refund policy (`FrontEnd/privacy.html`, `terms.html`, `refunds.html`, `cookies.html`) describe this demo: test-mode payments and no business behind it. **Before setting Razorpay keys or running MetriGo as a real service, rewrite them** with the operator's legal details, a grievance officer, and real refund terms, then change `TERMS_VERSION` in `Backend/server.js` so new sign-ups record the new version.
 
 ## Deploying to Vercel
 
@@ -91,7 +94,7 @@ Fares follow distance bands, then a time-slot multiplier: early morning ×0.8, a
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /register`, `POST /login`, `GET /logout`, `POST /forgot-password`, `POST /reset-password` |
+| Auth | `POST /register` (needs `acceptTerms` and `ageConfirmed`), `POST /login`, `GET /logout`, `POST /forgot-password`, `POST /reset-password`, `POST /delete-account` (password + `confirm: "DELETE"`) |
 | Profile | `GET /profile`, `POST /update-profile` (name, password, saved stations) |
 | Routing | `GET /stations`, `POST /shortest-path`, `POST /journey` |
 | Seats | `POST /seat-map`, `POST /suggest-seats` |
@@ -126,3 +129,4 @@ FrontEnd/
 - Only the Yellow and Blue lines are included, with approximate station coordinates.
 - Live train positions are simulated from the timetable, not real-time feeds.
 - Payments are simulated unless Razorpay keys are configured.
+- This is a student project, not an official Delhi Metro app. Third-party licences are listed in `THIRD_PARTY_NOTICES.md`.

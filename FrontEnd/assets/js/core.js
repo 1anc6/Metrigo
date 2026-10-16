@@ -367,9 +367,16 @@
   };
 
   // ---------- Sheets ----------
+  // Keyboard focus stays inside the open sheet and returns to whatever opened it
+  const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])';
+  let returnFocus = null;
+
   MG.sheet = {
     open(html, opts = {}) {
+      const wasOpen = !!MG.sheet.current;
       MG.sheet.close(true);
+      // A sheet replacing another keeps the first opener as the place to go back to
+      if (!wasOpen) returnFocus = document.activeElement;
       const bd = document.createElement("div");
       bd.className = "sheet-backdrop";
       bd.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" ${opts.label ? `aria-label="${MG.esc(opts.label)}"` : ""}><div class="grabber"></div>${html}</div>`;
@@ -395,9 +402,26 @@
       const cb = MG.sheet.onClose;
       MG.sheet.onClose = null;
       if (cb && !silent) cb();
+      // Wait a frame: a sheet opened straight after this one keeps focus
+      requestAnimationFrame(() => {
+        if (MG.sheet.current || !returnFocus) return;
+        if (document.body.contains(returnFocus)) returnFocus.focus({ preventScroll: true });
+        returnFocus = null;
+      });
     },
   };
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && MG.sheet.current) MG.sheet.close(); });
+  document.addEventListener("keydown", e => {
+    const bd = MG.sheet.current;
+    if (!bd) return;
+    if (e.key === "Escape") return MG.sheet.close();
+    if (e.key !== "Tab") return;
+    const items = MG.$$(FOCUSABLE, bd).filter(el => el.offsetParent !== null);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (!bd.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   // Save a Blob as a file (PDF tickets, calendar events)
   MG.download = (blob, filename) => {
@@ -758,6 +782,32 @@
 
   // Countdown label for arrivals
   MG.etaLabel = (min) => (min < 0.75 ? "Now" : Math.ceil(min) + " min");
+
+  // ---------- Legal links + storage notice ----------
+  MG.legalLinks = () => `<nav class="legal-links" aria-label="Legal">
+    <a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="refunds.html">Refunds</a><a href="cookies.html">Cookies</a>
+  </nav>`;
+
+  // MetriGo only uses storage it needs (see cookies.html), so this is a
+  // one-time notice, not a consent prompt: there is nothing optional to refuse.
+  const NOTICE_KEY = "mg-notice-seen";
+  (function storageNotice() {
+    let seen = true;
+    try { seen = localStorage.getItem(NOTICE_KEY) === "1"; } catch (e) { /* storage blocked: nothing is stored either */ }
+    if (seen || /\/cookies\.html$/.test(location.pathname)) return;
+    const el = document.createElement("div");
+    el.className = "storage-notice";
+    el.setAttribute("role", "region");
+    el.setAttribute("aria-label", "Cookie notice");
+    el.innerHTML = `<span>MetriGo uses one sign-in cookie and keeps your settings on this device. No ads or tracking. <a href="cookies.html">Cookie policy</a></span><button type="button">OK</button>`;
+    el.querySelector("button").addEventListener("click", () => {
+      try { localStorage.setItem(NOTICE_KEY, "1"); } catch (e) { /* storage blocked */ }
+      el.remove();
+      document.body.classList.remove("has-notice");
+    });
+    document.body.appendChild(el);
+    document.body.classList.add("has-notice"); // pages leave room so nothing hides behind it
+  })();
 
   // ---------- Offline app (sw.js) + install prompt ----------
   if ("serviceWorker" in navigator && location.protocol !== "file:") {

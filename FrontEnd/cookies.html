@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cookie policy · MetriGo</title>
+<meta name="description" content="The one cookie and the on-device storage MetriGo uses, and why.">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("mg-theme")||"light"}catch(e){}</script>
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#E7E8E4">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="expect" href="#mg-ready" blocking="render">
+</head>
+<body class="no-tabs">
+<main class="app legal">
+  <header class="page-head">
+    <a class="back" href="index.html" id="back" aria-label="Back"><span data-icon="arrowL"></span></a>
+    <h1 class="title">Cookie policy</h1>
+  </header>
+  <p class="updated">Last updated 16 October 2026</p>
+  <section class="card pad">
+    <h2>Summary</h2>
+    <p>MetriGo uses one cookie, to keep you signed in, and stores a few settings on your device. All of it is needed for the app to work or remembers a choice you made. There are no advertising, analytics or tracking cookies, so there is nothing to opt out of.</p>
+  </section>
+  <section class="card pad">
+    <h2>Cookie</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Name</th><th>Purpose</th><th>Lasts</th></tr></thead>
+      <tbody><tr><td><code>connect.sid</code></td><td>Keeps you signed in. HTTP-only, so page scripts can't read it.</td><td>24 hours, or until you log out</td></tr></tbody>
+    </table></div>
+  </section>
+  <section class="card pad">
+    <h2>Storage on your device</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Name</th><th>Purpose</th><th>Lasts</th></tr></thead>
+      <tbody>
+        <tr><td><code>mg-theme</code></td><td>Light or dark mode</td><td>Until you clear site data</td></tr>
+        <tr><td><code>mg-sound</code></td><td>Touch sounds on or off</td><td>Until you clear site data</td></tr>
+        <tr><td><code>mg-recent-stations</code></td><td>Your last six stations in the station picker</td><td>Until you clear site data</td></tr>
+        <tr><td><code>mg-routes-v1</code></td><td>Popular routes on Home, so it opens instantly</td><td>Until you clear site data</td></tr>
+        <tr><td><code>mg-install-dismissed</code></td><td>Remembers you closed the “Install MetriGo” prompt</td><td>Until you clear site data</td></tr>
+        <tr><td><code>mg-notice-seen</code></td><td>Remembers you've seen the storage notice</td><td>Until you clear site data</td></tr>
+        <tr><td><code>mg-me</code> (session storage)</td><td>Your profile, so pages paint without waiting</td><td>Until you close the tab</td></tr>
+        <tr><td><code>metrigo</code> (IndexedDB)</td><td>Your upcoming tickets, so they open without signal</td><td>Cleared when you log out</td></tr>
+        <tr><td>App cache (<code>mg-shell</code>, <code>mg-runtime</code>, <code>mg-api</code>)</td><td>Lets the app open offline</td><td>Account data cleared when you log out</td></tr>
+      </tbody>
+    </table></div>
+    <p>You can clear all of this in your browser's site settings. You'll be signed out and your settings will reset.</p>
+  </section>
+  <section class="card pad">
+    <h2>Third parties</h2>
+    <p>Maps load images from OpenStreetMap, which sees your IP address but sets no cookies through MetriGo. Nothing else is loaded from other sites. More in the <a href="privacy.html">privacy policy</a>.</p>
+  </section>
+
+  <nav class="legal-links" aria-label="Legal">
+    <a href="privacy.html">Privacy policy</a><a href="terms.html">Terms of service</a><a href="refunds.html">Refund policy</a><a href="cookies.html">Cookie policy</a>
+  </nav>
+</main>
+
+<script src="assets/js/core.js"></script>
+<script>
+// Back goes where the reader came from (sign-in, profile, checkout), else Home
+if (history.length > 1 && document.referrer.startsWith(location.origin)) {
+  document.getElementById("back").addEventListener("click", e => { e.preventDefault(); history.back(); });
+}
+</script>
+<i id="mg-ready" hidden></i>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy policy · MetriGo</title>
+<meta name="description" content="What MetriGo collects, why, how long it keeps it and how to delete it.">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("mg-theme")||"light"}catch(e){}</script>
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#E7E8E4">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="expect" href="#mg-ready" blocking="render">
+</head>
+<body class="no-tabs">
+<main class="app legal">
+  <header class="page-head">
+    <a class="back" href="index.html" id="back" aria-label="Back"><span data-icon="arrowL"></span></a>
+    <h1 class="title">Privacy policy</h1>
+  </header>
+  <p class="updated">Last updated 16 October 2026</p>
+  <section class="card pad">
+    <h2>MetriGo is a student demo</h2>
+    <p>MetriGo is a student portfolio project, built and run by one developer (<a href="https://github.com/1anc6" rel="noopener">1anc6 on GitHub</a>). It is not a registered business and is <b>not affiliated with, endorsed by or connected to Delhi Metro Rail Corporation (DMRC)</b>.</p>
+    <p>Tickets made in MetriGo are <b>not valid for travel</b>. Timetables, train positions, crowd levels and seat occupancy are simulated. Payments run in test mode: no real money is taken.</p>
+  </section>
+  <section class="card pad">
+    <h2>What we collect</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Why</th><th>Kept</th></tr></thead>
+      <tbody>
+        <tr><td>Email and password (stored only as a bcrypt hash)</td><td>To sign you in and send password reset codes</td><td>Until you delete your account</td></tr>
+        <tr><td>Name (optional)</td><td>To greet you and print on your Metro Card</td><td>Until you delete your account</td></tr>
+        <tr><td>When you accepted these terms and confirmed your age</td><td>To show you agreed before using the service</td><td>Until you delete your account</td></tr>
+        <tr><td>Saved stations</td><td>Quick picks in search</td><td>Until you remove them or delete your account</td></tr>
+        <tr><td>Bookings: route, date, train, seats, price, payment method and payment ID</td><td>To issue, show and cancel tickets</td><td>While your account exists; after deletion, kept without your email (see below)</td></tr>
+        <tr><td>Metro Card recharges, ticket payments and refunds</td><td>To keep your balance correct</td><td>Until you delete your account</td></tr>
+        <tr><td>Support messages</td><td>To answer you</td><td>Until you delete your account</td></tr>
+        <tr><td>Checkout records (amount, chosen seats)</td><td>To hold seats while you pay</td><td>About one hour</td></tr>
+        <tr><td>Password reset code (hashed)</td><td>To let you reset your password</td><td>15 minutes, or until used</td></tr>
+        <tr><td>Sign-in session</td><td>To keep you signed in</td><td>24 hours, or until you log out</td></tr>
+        <tr><td>IP address</td><td>To limit repeated sign-in and reset attempts; also appears in the hosting provider's request logs</td><td>15 minutes for rate limits; the host's own log retention</td></tr>
+      </tbody>
+    </table></div>
+    <p>We don't ask for your phone number, date of birth, address or ID. We never see full card or bank details: those would be entered in Razorpay's window, and we only receive a payment ID.</p>
+  </section>
+  <section class="card pad">
+    <h2>What we don't do</h2>
+    <ul>
+      <li>No advertising, analytics or tracking scripts, and no selling or sharing of your data for marketing.</li>
+      <li>No marketing email. The only email MetriGo sends is the password reset code you ask for.</li>
+      <li>No profiling of children, and no targeted content of any kind.</li>
+    </ul>
+  </section>
+  <section class="card pad">
+    <h2>Who else handles your data</h2>
+    <ul>
+      <li><b>Vercel</b> hosts the website and API, and <b>Turso</b> hosts the database. Both may process data outside India.</li>
+      <li><b>OpenStreetMap</b> serves the map images. When a map loads, your browser asks OpenStreetMap's servers for them, which shows them your IP address. See the <a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener">OSMF privacy policy</a>.</li>
+      <li><b>Razorpay</b> would process live payments, but this demo runs in test mode and does not contact Razorpay.</li>
+      <li>An <b>email provider</b> delivers password reset codes when one is configured.</li>
+    </ul>
+    <p>Fonts and code libraries are served from MetriGo itself, so loading a page doesn't contact Google Fonts or other CDNs.</p>
+  </section>
+  <section class="card pad">
+    <h2>Your rights</h2>
+    <p>Under India's Digital Personal Data Protection Act, 2023 you can:</p>
+    <ul>
+      <li><b>See your data</b>: your profile, trips and Metro Card pages show everything stored about you. Ask through support for a copy.</li>
+      <li><b>Correct it</b>: change your name in Profile → Edit account information.</li>
+      <li><b>Erase it</b>: Profile → Delete account removes it straight away (details below).</li>
+      <li><b>Withdraw consent</b>: deleting your account withdraws it.</li>
+      <li><b>Raise a grievance</b> or <b>nominate</b> someone to act for you: contact us (below). We aim to reply within 30 days.</li>
+    </ul>
+  </section>
+  <section class="card pad" id="delete">
+    <h2>Deleting your account</h2>
+    <p>Profile → Delete account asks for your password and deletes your profile, saved stations, Metro Card history, support messages, pending checkouts and every signed-in session. Upcoming trips are cancelled so their seats are freed.</p>
+    <p>Past bookings are kept without your email or name, because seat and payment records point to them. They can no longer be linked to you. Tickets and data saved on your device are cleared when you're signed out.</p>
+  </section>
+  <section class="card pad">
+    <h2>Children</h2>
+    <p>You must be 18 or older to create an account, or have a parent or guardian agree to you using MetriGo. We don't knowingly collect data from children without that agreement. If you think a child has signed up without it, contact us and we'll delete the account.</p>
+  </section>
+  <section class="card pad">
+    <h2>Security</h2>
+    <p>Passwords are hashed with bcrypt, sessions are stored in the database with secure, HTTP-only cookies, and sign-in and reset requests are rate-limited. No system is perfectly secure, so please don't reuse a password from another service.</p>
+  </section>
+  <section class="card pad">
+    <h2>Contact</h2>
+    <p>For privacy questions, requests and grievances:</p>
+    <ul>
+      <li>Signed in: <a href="help.html">Help &amp; Support</a> → Send a message. Your message is stored with your account.</li>
+      <li>Not signed in: open an issue at <a href="https://github.com/1anc6/Metrigo/issues" rel="noopener">github.com/1anc6/Metrigo/issues</a>. Issues are public, so don't include personal details; ask for a private way to reach you instead.</li>
+    </ul>
+  </section>
+  <section class="card pad">
+    <h2>Changes</h2>
+    <p>If this policy changes, the date at the top changes too, and sign-up records which version you accepted. If MetriGo ever takes real payments or collects more data, this policy will be updated before that happens.</p>
+  </section>
+
+  <nav class="legal-links" aria-label="Legal">
+    <a href="privacy.html">Privacy policy</a><a href="terms.html">Terms of service</a><a href="refunds.html">Refund policy</a><a href="cookies.html">Cookie policy</a>
+  </nav>
+</main>
+
+<script src="assets/js/core.js"></script>
+<script>
+// Back goes where the reader came from (sign-in, profile, checkout), else Home
+if (history.length > 1 && document.referrer.startsWith(location.origin)) {
+  document.getElementById("back").addEventListener("click", e => { e.preventDefault(); history.back(); });
+}
+</script>
+<i id="mg-ready" hidden></i>
+</body>
+</html>

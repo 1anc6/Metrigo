@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Book a trip · MetriGo</title>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("mg-theme")||"light"}catch(e){}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#E7E8E4">
@@ -224,7 +223,7 @@ function paintResults() {
       <div class="stats" style="margin-bottom:14px">
         <div class="stat"><div class="k">Stops</div><div class="v">${route.stops}</div></div>
         <div class="stat"><div class="k">Distance</div><div class="v">${route.distance}<small> km</small></div></div>
-        <div class="stat"><div class="k">Fare</div><div class="v">${rupee(route.fare)}</div></div>
+        <div class="stat"><div class="k">Base fare</div><div class="v">${rupee(route.fare)}</div></div>
       </div>
       ${MG.timelineHTML(route.path, legs, true)}
     </section>
@@ -239,7 +238,7 @@ function paintResults() {
             ${crowdChip(d.crowd)}
             ${d.legs.length > 1 ? `<span class="chip">${icon("route")}via ${esc(d.legs[1].from)}</span>` : ""}
           </div>
-          <div class="price"><b>${rupee(d.perPassenger * state.count)}</b><small>${rupee(d.perPassenger)} × ${state.count}</small></div>
+          <div class="price"><b>${rupee(d.perPassenger * state.count)}</b><small>${rupee(d.perPassenger)} × ${state.count}${SLOTS[d.timeSlot] && SLOTS[d.timeSlot].multiplier !== 1 ? ` · ×${SLOTS[d.timeSlot].multiplier} ${esc(SLOTS[d.timeSlot].label.toLowerCase())}` : ""}</small></div>
         </div>
       </button>`).join("")
     : empty("clock", "No trains in this window", "Try another time or date. Trains run 6:00 AM – 11:00 PM.")}`;

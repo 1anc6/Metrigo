@@ -60,8 +60,9 @@
     const rows = isTicket
       ? `<div class="summary-row"><span>Route</span><span>${MG.esc(s.from)} → ${MG.esc(s.to)}</span></div>
          <div class="summary-row"><span>Departure</span><span>${MG.fmtDate(s.date, { day: "numeric", month: "short" })} · ${MG.esc(s.departTime)}</span></div>
-         <div class="summary-row"><span>Seats</span><span>${s.seats.map(MG.esc).join(", ")}</span></div>
-         <div class="summary-row"><span>Fare</span><span>${MG.rupee(s.perPassenger)} × ${s.seats.length} · ${MetroSim.TIME_SLOTS[s.timeSlot].label}</span></div>`
+         <div class="summary-row"><span>Seat numbers</span><span>${s.seats.map(MG.esc).join(", ")}</span></div>
+         <div class="summary-row"><span>Fare per seat</span><span>${MG.rupee(s.perPassenger)} (${MetroSim.TIME_SLOTS[s.timeSlot].label} ×${MetroSim.TIME_SLOTS[s.timeSlot].multiplier})</span></div>
+         <div class="summary-row"><span>Seats</span><span>× ${s.seats.length}</span></div>`
       : `<div class="summary-row"><span>Metro Card recharge</span><span>${MG.rupee(s.amount)}</span></div>`;
 
     const expires = Date.now() + 15 * 60 * 1000;
@@ -80,8 +81,9 @@
         </div>
         <div id="payPanel"></div>
         <div id="payError"></div>
+        <p class="tiny faint">No booking or convenience fees. ${isTicket ? "Cancel before departure for a full refund to your Metro Card. " : ""}By paying you agree to the <a href="terms.html" style="text-decoration:underline">terms</a> and <a href="refunds.html" style="text-decoration:underline">refund policy</a>.</p>
         <button class="btn block" id="payBtn"></button>
-        <div class="row between tiny faint"><span class="row" style="gap:6px">${MG.icon("shield")} Secured by ${test ? "MetriGo test gateway" : "Razorpay"}</span><span class="num" id="payTimer">15:00</span></div>
+        <div class="row between tiny faint"><span class="row" style="gap:6px">${MG.icon("shield")} ${test ? "Test payment, no money moves" : "Payment by Razorpay"}</span><span class="num" id="payTimer" aria-label="Seats held for">15:00</span></div>
       </div>`, { label: "Checkout", noFocus: true,
       // Closing without paying releases the held seats for other passengers
       onClose: () => MG.api("/payments/cancel", { body: { orderId: order.orderId } }).catch(() => {}) });
@@ -114,10 +116,8 @@
       } else if (!test) {
         panel.innerHTML = `<p class="small muted">You'll finish paying in the secure Razorpay window.</p>`;
       } else if (method === "upi") {
-        panel.innerHTML = `<div class="stack-sm" style="align-items:center;text-align:center">
-          <div class="qr-box" id="upiQr"></div>
-          <div class="small muted">Scan with any UPI app, then tap pay to simulate approval.<br><b class="num" style="color:var(--text)">metrigo@upi</b></div></div>`;
-        MG.renderQR(MG.$("#upiQr", panel), `upi://pay?pa=metrigo@upi&pn=MetriGo&am=${order.amount}&tr=${order.orderId}&cu=INR`, 180);
+        // No payable UPI QR in test mode: a real UPI app could send real money to whoever owns the ID
+        panel.innerHTML = `<div class="notice">${MG.icon("phone")}<span>Test mode doesn't show a UPI QR or ask for a UPI ID. Tap pay to simulate an approved UPI payment.</span></div>`;
       } else if (method === "card") {
         panel.innerHTML = `<div class="notice">${MG.icon("card")}<span>Test mode doesn't collect card details. With Razorpay enabled, card entry happens in Razorpay's secure window.</span></div>`;
       } else {
@@ -175,7 +175,7 @@
   };
 
   // ---------- Ticket exports: QR text, PDF, share, calendar ----------
-  const JSPDF_SRC = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+  const JSPDF_SRC = "assets/js/vendor/jspdf.umd.min.js";
 
   function ticketQRText(b) {
     return `METRIGO|${b.pnr}|${b.from}|${b.to}|${b.travelDate || ""}|${b.departTime || ""}|${(b.seats || []).join(",")}`;
@@ -228,7 +228,7 @@
     doc.text("M", 12.25, 13.2, { align: "center" });
     doc.setTextColor(...INK); doc.setFontSize(13); doc.text("MetriGo", 19.5, 13.6);
     doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); doc.setTextColor(...MUTED);
-    doc.text("E-TICKET  ·  DELHI METRO", W - 8, 13, { align: "right" });
+    doc.text("DEMO TICKET  ·  NOT VALID FOR TRAVEL", W - 8, 13, { align: "right" });
 
     // Card
     doc.setFillColor(...CARD); doc.roundedRect(6, 22, W - 12, cardBottom - 22, 5, 5, "F");
@@ -279,7 +279,7 @@
     doc.setFillColor(255, 255, 255); doc.roundedRect(W / 2 - 25, cut + 6, 50, 50, 3, 3, "F");
     doc.addImage(qr, "PNG", W / 2 - 22, cut + 9, 44, 44, "qr", "FAST");
     doc.setFontSize(7); doc.setTextColor(...MUTED);
-    doc.text("Show this QR at the AFC gate", W / 2, cut + 61, { align: "center" });
+    doc.text("Demo only. This QR won't open Delhi Metro gates.", W / 2, cut + 61, { align: "center" });
 
     // Details
     const cell = (label, value, x, cy) => {
@@ -298,7 +298,7 @@
 
     // Footer
     doc.setFont("helvetica", "normal"); doc.setFontSize(6.2); doc.setTextColor(...MUTED);
-    doc.text(`${location.host}  ·  Valid for one journey  ·  Not transferable`, W / 2, H - 6, { align: "center" });
+    doc.text(`${location.host}  ·  Student demo, not affiliated with DMRC`, W / 2, H - 6, { align: "center" });
     return doc.output("blob");
   };
 
@@ -370,7 +370,7 @@
         ${MG.closeBtn()}
       </div>
       ${offline ? `<div style="margin-bottom:14px">${MG.offlineNotice()}</div>` : ""}
-      ${opts.fresh ? `<div class="notice ok" style="margin-bottom:14px">${MG.icon("check")}<span>Paid ${MG.rupee(b.price)}. Show this QR at the AFC gate.</span></div>` : ""}
+      ${opts.fresh ? `<div class="notice ok" style="margin-bottom:14px">${MG.icon("check")}<span>Paid ${MG.rupee(b.price)} (test mode). This is a demo ticket and isn't valid for travel.</span></div>` : ""}
       <div class="ticket">
         <div class="ticket-top">
           <div class="row between" style="margin-bottom:6px">
@@ -386,7 +386,7 @@
         </div>
         <div class="ticket-cut"></div>
         <div class="ticket-bottom">
-          <div class="qr-box" id="ticketQr"></div>
+          <div class="qr-box" id="ticketQr" role="img" aria-label="Ticket QR code for PNR ${MG.esc(b.pnr)}"></div>
           <div class="kv">
             <div class="wide"><div class="k">PNR</div><div class="v num pnr-v">${MG.esc(b.pnr)}</div></div>
             <div><div class="k">Date</div><div class="v">${MG.esc(date)}</div></div>
@@ -406,6 +406,7 @@
         ${canCancel ? `<button class="btn danger" id="cancelTrip" style="flex:1">Cancel trip</button>` : ""}
       </div>
       ${canCancel ? `<p class="tiny faint" style="margin-top:10px;text-align:center">Cancel before departure for a full refund to your Metro Card.</p>` : ""}
+      <p class="tiny faint" style="margin-top:8px;text-align:center">Demo ticket from a student project. Not valid for travel on Delhi Metro.</p>
     `, { label: "Ticket", onClose: opts.onClose, noFocus: true });
 
     MG.renderQR(MG.$("#ticketQr", sheet), ticketQRText(b), 108);

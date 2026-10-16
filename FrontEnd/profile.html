@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Profile · MetriGo</title>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("mg-theme")||"light"}catch(e){}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#E7E8E4">
@@ -55,7 +54,10 @@
     </div>
   </div>
   <a class="list-row" href="help.html"><span data-icon="help"></span><span class="grow">Help &amp; Support</span><span data-icon="arrowR" class="go"></span></a>
+  <a class="list-row" href="privacy.html"><span data-icon="shield"></span><span class="grow">Privacy &amp; Legal<span class="sub">Privacy, terms, refunds, cookies</span></span><span data-icon="arrowR" class="go"></span></a>
   <a class="list-row danger" href="/logout"><span data-icon="logout"></span><span class="grow">Log Out</span></a>
+  <button class="list-row danger" id="deleteBtn"><span data-icon="x"></span><span class="grow">Delete Account<span class="sub">Remove your account and data</span></span></button>
+  <div id="legalFoot" style="padding:4px 6px"></div>
   </div>
 </main>
 
@@ -133,6 +135,36 @@ $("#passBtn").addEventListener("click", () => {
     MG.sheet.close(); MG.toast("Password updated");
   });
 });
+
+// Deletion is self-serve: password + typing DELETE, consequences spelled out first
+$("#deleteBtn").addEventListener("click", () => {
+  const trips = (me && me.upcomingTrips) || 0, balance = (me && me.cardBalance) || 0;
+  const sheet = MG.sheet.open(`
+    <div class="sheet-head"><div><div class="eyebrow">Delete account</div><div class="h2">This can't be undone</div></div>${MG.closeBtn()}</div>
+    <form class="stack" id="delForm" novalidate>
+      <div class="notice bad">${icon("info")}<span>This deletes your profile, saved stations, Metro Card history and support messages, and signs you out everywhere.${trips ? ` Your ${trips} upcoming trip${trips > 1 ? "s" : ""} will be cancelled.` : ""}${balance ? ` Your Metro Card balance of ${rupee(balance)} will be lost.` : ""} Past bookings are kept without your name or email. <a href="privacy.html#delete" style="text-decoration:underline">Details</a></span></div>
+      <div class="input-group"><label for="delPw">Your password</label><input class="input" id="delPw" type="password" autocomplete="current-password"></div>
+      <div class="input-group"><label for="delConfirm">Type DELETE to confirm</label><input class="input" id="delConfirm" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+      <div id="delMsg" aria-live="polite"></div>
+      <button class="btn danger" id="delGo">Delete my account</button>
+    </form>`, { label: "Delete account" });
+  const msg = t => $("#delMsg", sheet).innerHTML = `<div class="notice bad">${icon("info")}<span>${esc(t)}</span></div>`;
+  $("#delForm", sheet).addEventListener("submit", async e => {
+    e.preventDefault();
+    const password = $("#delPw", sheet).value, confirm = $("#delConfirm", sheet).value.trim();
+    if (!password) return msg("Enter your password.");
+    if (confirm !== "DELETE") return msg("Type DELETE in capitals to confirm.");
+    const btn = $("#delGo", sheet);
+    MG.setBusy(btn, true, "Deleting…");
+    const r = await api("/delete-account", { body: { password, confirm } }).catch(err => ({ message: err.message }));
+    if (!r.success) { MG.setBusy(btn, false); return msg(r.message || "Couldn't delete your account."); }
+    await MG.tickets.forget();
+    try { sessionStorage.clear(); } catch (err) { /* storage blocked */ }
+    location.replace("login.html#deleted");
+  });
+});
+
+$("#legalFoot").innerHTML = MG.legalLinks();
 
 $("#savedBtn").addEventListener("click", openSaved);
 function openSaved() {

@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trips · MetriGo</title>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("mg-theme")||"light"}catch(e){}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#E7E8E4">
@@ -31,7 +30,7 @@
   <!-- Search + filter: stacked on phones, one aligned row on desktop -->
   <div class="toolbar">
     <form class="search" id="searchForm" role="search" autocomplete="off">
-      <input id="q" placeholder="Search..." aria-label="Search trips by station or PNR" spellcheck="false">
+      <input id="q" placeholder="Search…" aria-label="Search trips by station or PNR" spellcheck="false">
       <button aria-label="Search"><span data-icon="search"></span></button>
     </form>
   

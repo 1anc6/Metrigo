@@ -118,7 +118,10 @@ const SCHEMA = `
     name         TEXT NOT NULL DEFAULT '',
     created_at   TEXT,
     favorites    TEXT NOT NULL DEFAULT '[]',  -- JSON array of station names
-    card_balance INTEGER NOT NULL DEFAULT 0 CHECK (card_balance >= 0)
+    card_balance INTEGER NOT NULL DEFAULT 0 CHECK (card_balance >= 0),
+    terms_version TEXT,                  -- which terms + privacy policy they accepted
+    consented_at  TEXT,                  -- when they accepted them and confirmed their age
+    age_confirmed INTEGER NOT NULL DEFAULT 0  -- 18+, or a parent/guardian agreed
   );
 
   -- Metro Card ledger; newest first = highest id
@@ -209,8 +212,8 @@ const SCHEMA = `
 // STATEMENTS
 // =============================
 const insertUser = stmt(`
-  INSERT INTO users (email, password, name, created_at, favorites, card_balance)
-  VALUES (@email, @password, @name, @createdAt, @favorites, @cardBalance)
+  INSERT INTO users (email, password, name, created_at, favorites, card_balance, terms_version, consented_at, age_confirmed)
+  VALUES (@email, @password, @name, @createdAt, @favorites, @cardBalance, @termsVersion, @consentedAt, @ageConfirmed)
 `);
 const insertTxn = stmt(`
   INSERT INTO transactions (email, type, amount, method, payment_id, pnr, at)
@@ -241,6 +244,17 @@ const q = {
   releaseSeats: stmt("DELETE FROM booking_seats WHERE pnr = ?"),
 
   insertTicket: stmt("INSERT INTO support_tickets (ticket, email, topic, message, at) VALUES (?, ?, ?, ?, ?)"),
+
+  // Account deletion (see /delete-account). Bookings stay as anonymous
+  // records so seat counts and payment look-ups still add up.
+  upcomingPnrs: stmt("SELECT pnr FROM bookings WHERE user_email = ? AND status = 'Confirmed' AND depart_at > ?", { pluck: true }),
+  anonymizeBookings: stmt("UPDATE bookings SET user_email = ? WHERE user_email = ?"),
+  deleteTxns: stmt("DELETE FROM transactions WHERE email = ?"),
+  deleteTickets: stmt("DELETE FROM support_tickets WHERE email = ?"),
+  deleteOrders: stmt("DELETE FROM payment_orders WHERE email = ?"),
+  deleteUser: stmt("DELETE FROM users WHERE email = ?"),
+  // Sessions store the email inside the JSON blob
+  deleteUserSessions: stmt("DELETE FROM web_sessions WHERE json_extract(sess, '$.email') = ?"),
 
   // Settlement lookups by payment id, so a payment is never settled twice
   bookingByPaymentId: stmt("SELECT * FROM bookings WHERE json_extract(data, '$.payment.paymentId') = ?"),
@@ -302,6 +316,8 @@ function toUser(row) {
     createdAt: row.created_at,
     favorites: JSON.parse(row.favorites),
     cardBalance: Number(row.card_balance),
+    termsVersion: row.terms_version || null,
+    consentedAt: row.consented_at || null,
   };
 }
 
@@ -349,6 +365,9 @@ const migrateJSON = transaction(async () => {
       createdAt: u.createdAt || null,
       favorites: JSON.stringify(Array.isArray(u.favorites) ? u.favorites : []),
       cardBalance: Math.max(0, Math.round(u.cardBalance || 0)),
+      termsVersion: null,
+      consentedAt: null,
+      ageConfirmed: 0,
     });
     // JSON stored newest first; insert oldest first so ids increase with time
     for (const t of [...(u.transactions || [])].reverse()) {
@@ -393,6 +412,11 @@ async function init() {
     await client.execute("PRAGMA busy_timeout = 5000");
   }
   await client.executeMultiple(SCHEMA);
+  // Columns added after the first release; CREATE TABLE IF NOT EXISTS skips them on older databases
+  const userCols = (await client.execute("PRAGMA table_info(users)")).rows.map(r => r.name);
+  for (const [col, type] of [["terms_version", "TEXT"], ["consented_at", "TEXT"], ["age_confirmed", "INTEGER NOT NULL DEFAULT 0"]]) {
+    if (!userCols.includes(col)) await client.execute(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
+  }
   // METRIGO_SKIP_JSON_IMPORT is set by scripts/copy-to-turso.js, which copies
   // the database itself instead
   const migrated = await stmt("SELECT 1 FROM meta WHERE key = 'json_migrated'", { pluck: true }).get();

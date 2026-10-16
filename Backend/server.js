@@ -365,11 +365,23 @@ app.get("/", (req, res) => {
 });
 
 // ---------- AUTH ----------
+// Date of the terms and privacy policy now on the site (FrontEnd/terms.html,
+// privacy.html). Change it when they change; each user row records the
+// version they accepted.
+const TERMS_VERSION = "2026-10-16";
+
 app.post("/register", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = String(req.body.password || "");
   const name = String(req.body.name || "").trim().slice(0, 100);
 
+  // Consent is checked here too, not only by the sign-up form's checkboxes
+  if (req.body.acceptTerms !== true) {
+    return res.json({ success: false, message: "Please accept the terms and privacy policy to continue." });
+  }
+  if (req.body.ageConfirmed !== true) {
+    return res.json({ success: false, message: "Please confirm you're 18 or older, or that a parent or guardian agrees." });
+  }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.json({ success: false, message: "Please enter a valid email." });
   }
@@ -380,14 +392,18 @@ app.post("/register", async (req, res) => {
   const exists = "An account with this email already exists.";
   if (await getUser(email)) return res.json({ success: false, message: exists });
 
+  const now = new Date().toISOString();
   try {
     await insertUser.run({
       email,
       password: await bcrypt.hash(password, 10),
       name,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       favorites: "[]",
       cardBalance: 0,
+      termsVersion: TERMS_VERSION,
+      consentedAt: now,
+      ageConfirmed: 1,
     });
   } catch (err) {
     // Two registrations raced past the check above
@@ -412,6 +428,7 @@ function limiter(limit, message) {
 const loginLimiter = limiter(10, "Too many sign-in attempts. Try again in 15 minutes.");
 const forgotLimiter = limiter(5, "Too many reset requests. Try again in 15 minutes.");
 const resetLimiter = limiter(10, "Too many reset attempts. Try again in 15 minutes.");
+const deleteLimiter = limiter(10, "Too many attempts. Try again in 15 minutes.");
 
 app.post("/login", loginLimiter, async (req, res) => {
   const user = await getUser(req.body.email);
@@ -514,6 +531,7 @@ app.get("/profile", requireLogin, async (req, res) => {
   if (!user) return res.status(401).json({ success: false, message: "Not logged in" });
   const { password, ...data } = user;
   data.cardBalance = data.cardBalance || 0;
+  data.upcomingTrips = (await q.upcomingPnrs.all(user.email, Date.now())).length;
   res.json({ success: true, data });
 });
 
@@ -543,6 +561,44 @@ app.post("/update-profile", requireLogin, async (req, res) => {
     if (hash) await q.updatePassword.run(hash, email);
   })();
   res.json({ success: true });
+});
+
+// Deletes the account and everything tied to it: profile, Metro Card
+// history, support messages, pending payments and sessions. Upcoming trips
+// are cancelled so their seats free up. Past bookings are kept without the
+// email (anonymous), because seat and payment records refer to them.
+app.post("/delete-account", requireLogin, deleteLimiter, async (req, res) => {
+  const email = req.session.email;
+  const user = await getUser(email);
+  if (!user) return res.status(401).json({ success: false, message: "Not logged in" });
+  if (!(await verifyPassword(String(req.body.password || ""), user.password))) {
+    return res.json({ success: false, message: "That password isn't right." });
+  }
+  if (req.body.confirm !== "DELETE") {
+    return res.json({ success: false, message: "Type DELETE to confirm." });
+  }
+
+  const anonymous = "deleted-" + crypto.randomBytes(8).toString("hex");
+  await transaction(async () => {
+    const cancelledAt = new Date().toISOString();
+    for (const pnr of await q.upcomingPnrs.all(email, Date.now())) {
+      const { userEmail, ...data } = toBooking(await q.bookingByPnr.get(pnr));
+      await q.cancelBooking.run(JSON.stringify({ ...data, status: "Cancelled", cancelledAt }), pnr);
+      await q.releaseSeats.run(pnr);
+    }
+    await q.anonymizeBookings.run(anonymous, email);
+    await q.deleteTxns.run(email);
+    await q.deleteTickets.run(email);
+    await q.deleteOrders.run(email);
+    await q.deleteResetToken.run(email);
+    await q.deleteUser.run(email);
+    await q.deleteUserSessions.run(email);
+  })();
+
+  req.session.destroy(() => {
+    res.clearCookie("connect.sid");
+    res.json({ success: true });
+  });
 });
 
 // ---------- METRO & ROUTING ----------

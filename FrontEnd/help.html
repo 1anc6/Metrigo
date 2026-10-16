@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Help · MetriGo</title>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("mg-theme")||"light"}catch(e){}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#E7E8E4">
@@ -29,7 +28,7 @@
 
   <div class="col">
   <form class="search" id="faqSearch" role="search">
-    <input id="q" placeholder="Search..." aria-label="Search questions">
+    <input id="q" placeholder="Search…" aria-label="Search questions">
     <button aria-label="Search"><span data-icon="search"></span></button>
   </form>
 
@@ -38,8 +37,8 @@
   </div>
   <div class="col sticky" style="gap:12px">
   <div class="section-label desk-hide"><span class="h3">Get in touch</span></div>
-  <a class="list-row" href="tel:1800111265"><span data-icon="phone"></span><span class="grow">1800-111-265<span class="sub">Toll-free helpline, 24/7</span></span><span data-icon="arrowR" class="go"></span></a>
-  <a class="list-row" href="mailto:support@metrigoapp.in"><span data-icon="mail"></span><span class="grow">support@metrigoapp.in<span class="sub">Replies within 24 hours</span></span><span data-icon="arrowR" class="go"></span></a>
+  <div class="notice"><span data-icon="info"></span><span>MetriGo is a student demo run by one developer, not DMRC. For real Delhi Metro help, contact DMRC.</span></div>
+  <a class="list-row" href="https://github.com/1anc6/Metrigo/issues" rel="noopener"><span data-icon="message"></span><span class="grow">Report a problem<span class="sub">Public issue on GitHub</span></span><span data-icon="arrowR" class="go"></span></a>
 
   <form class="card pad stack" id="contact" novalidate>
     <div class="h2">Send a message</div>
@@ -51,6 +50,7 @@
     <div id="contactMsg"></div>
     <button class="btn" id="sendBtn">Send message</button>
   </form>
+  <div style="padding:4px 6px" id="legalFoot"></div>
   </div>
 </main>
 
@@ -61,12 +61,14 @@ const { $, icon, esc, api } = MG;
 MG.shell("profile");
 
 const FAQS = [
+  ["Is MetriGo an official Delhi Metro app?", "No. MetriGo is a student project and isn't affiliated with DMRC. Its tickets aren't valid for travel, payments are simulated, and train times, positions and crowding come from a simulation."],
   ["How do I book a ticket?", "Pick a destination on Home or open Book a trip. Choose From and To, a date, a time and the number of tickets, then pick a train, choose seats and pay. Your QR ticket appears under Trips."],
   ["How is the route chosen?", "MetriGo runs Dijkstra's shortest-path algorithm over the metro network, so you always get the shortest route, including the best interchange such as Rajiv Chowk."],
   ["Why does the fare change with time?", "Early morning ×0.8, afternoon ×0.9, night ×1.0, morning peak ×1.3 and evening peak ×1.4. Off-peak is cheaper and less crowded."],
   ["What does Best seats do?", "It seats your group together: first it looks for adjacent free seats in one row, then searches nearby rows for the tightest group."],
-  ["Which payment methods work?", "UPI, card, net banking or your Metro Card. The Metro Card gives 10% off every trip."],
-  ["How do I cancel a trip?", "Open the trip under Trips and tap Cancel trip before departure. The full amount goes back to your Metro Card."],
+  ["Which payment methods work?", "UPI, card, net banking or your Metro Card, all in test mode: no real money moves. The Metro Card gives 10% off every trip."],
+  ["How do I cancel a trip?", "Open the trip under Trips and tap Cancel trip before departure. The full amount goes back to your Metro Card. See the refund policy for details."],
+  ["How do I delete my account?", "Profile → Delete account. You'll need your password. Your profile and history are removed straight away; see the privacy policy for what's kept."],
   ["Is the live map real?", "Positions and arrival times follow MetriGo's timetable — every 3 minutes at peak, every 5 otherwise, 6 AM to 11 PM. They're simulated, not GPS."],
   ["Why is the first coach for women?", "As on Delhi Metro, the first coach of every train is reserved for women."],
 ];
@@ -79,6 +81,7 @@ function paintFaqs() {
     : `<div class="card empty">${icon("search")}<div class="h3">No matches</div><p class="small">Try another word, or send us a message.</p></div>`;
 }
 paintFaqs();
+$("#legalFoot").innerHTML = MG.legalLinks();
 $("#q").addEventListener("input", paintFaqs);
 $("#faqSearch").addEventListener("submit", e => e.preventDefault());
 
@@ -93,7 +96,7 @@ $("#contact").addEventListener("submit", async e => {
   MG.setBusy(btn, false);
   if (!r.success) return note(r.message || "Couldn't send your message.", "bad");
   $("#message").value = "";
-  note(`Thanks — ticket ${r.ticket} is open. We'll reply within 24 hours.`, "ok");
+  note(`Thanks. Your message is saved as ticket ${r.ticket}.`, "ok");
 });
 </script>
 <i id="mg-ready" hidden></i>

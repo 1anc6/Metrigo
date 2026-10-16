@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Welcome · MetriGo</title>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("mg-theme")||"light"}catch(e){}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#E7E8E4">
@@ -29,12 +28,13 @@
       <span class="b"><span class="mark"><span data-icon="train"></span></span>MetriGo</span>
       <button class="icon-btn" data-theme-toggle></button>
     </div>
-    <h1>Travel with comfort and safety!</h1>
-    <p class="lead">Shortest routes, reserved seats and live arrivals across the Delhi Metro.</p>
+    <h1>Plan your next metro trip</h1>
+    <p class="lead">Shortest routes, seat picks and a live train map for the Delhi Metro Yellow and Blue lines.</p>
     <div class="auth-cta">
       <button class="btn" id="signInBtn">Sign in</button>
       <button class="btn ghost" id="signUpBtn">Sign up</button>
     </div>
+    <p class="demo-note">A student demo, not affiliated with DMRC. Tickets aren't valid for travel and payments are simulated. <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="cookies.html">Cookies</a></p>
   </div>
 </main>
 <section class="auth-panel" id="panel" aria-live="polite"></section>
@@ -109,7 +109,8 @@ function openSignUp() {
       <div class="input-group"><label for="email">Email</label><input class="input" id="email" type="email" autocomplete="email" placeholder="you@example.com"></div>
       <div class="input-group"><label for="password">Password</label>
         <div class="input-wrap"><input class="input pw" id="password" type="password" autocomplete="new-password" placeholder="At least 6 characters"><button type="button" class="peek" aria-label="Show password"></button></div></div>
-      <label class="check"><input type="checkbox" id="terms"><span>I agree to MetriGo's terms of service and privacy policy.</span></label>
+      <label class="check"><input type="checkbox" id="terms"><span>I agree to the <a href="terms.html" target="_blank" rel="noopener">terms of service</a> and <a href="privacy.html" target="_blank" rel="noopener">privacy policy</a>.</span></label>
+      <label class="check"><input type="checkbox" id="age"><span>I'm 18 or older, or a parent or guardian agrees to me using MetriGo.</span></label>
       <div id="msg" aria-live="polite"></div>
       <button class="btn" id="go">Create account</button>
       <p class="small muted" style="text-align:center">Already have an account? <button type="button" class="strong" id="toIn" style="color:var(--text)">Sign in</button></p>
@@ -122,10 +123,11 @@ function openSignUp() {
     const msg = $("#msg", sheet);
     if (!email || !password) return note(msg, "Enter your email and a password.");
     if (password.length < 6) return note(msg, "Password must be at least 6 characters.");
-    if (!$("#terms", sheet).checked) return note(msg, "Please accept the terms to continue.");
+    if (!$("#terms", sheet).checked) return note(msg, "Please accept the terms and privacy policy to continue.");
+    if (!$("#age", sheet).checked) return note(msg, "Please confirm you're 18 or older, or that a parent or guardian agrees.");
     const btn = $("#go", sheet);
     MG.setBusy(btn, true, "Creating account…");
-    const r = await api("/register", { body: { name, email, password }, allow401: true }).catch(err => ({ message: err.message }));
+    const r = await api("/register", { body: { name, email, password, acceptTerms: true, ageConfirmed: true }, allow401: true }).catch(err => ({ message: err.message }));
     if (r.success) return location.href = "index.html";
     MG.setBusy(btn, false);
     note(msg, r.message || "Registration failed.");
@@ -169,7 +171,8 @@ function openReset(prefill) {
 
 $("#signInBtn").addEventListener("click", () => openSignIn());
 $("#signUpBtn").addEventListener("click", openSignUp);
-if (location.hash === "#signup") openSignUp();
+if (location.hash === "#deleted") openSignIn("", "Your account and its data have been deleted.");
+else if (location.hash === "#signup") openSignUp();
 else if (location.hash === "#signin" || next || MG.desk.matches) openSignIn();
 </script>
 <i id="mg-ready" hidden></i>

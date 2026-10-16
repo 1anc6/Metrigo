@@ -10,7 +10,7 @@
   },
   "rewrites": [
     {
-      "source": "/:route(register|login|logout|forgot-password|reset-password|profile|update-profile|stations|shortest-path|journey|seat-map|suggest-seats|my-bookings|check-pnr|cancel-booking|card-balance|support)",
+      "source": "/:route(register|login|logout|forgot-password|reset-password|profile|update-profile|stations|shortest-path|journey|seat-map|suggest-seats|my-bookings|check-pnr|cancel-booking|card-balance|support|delete-account)",
       "destination": "/api"
     },
     {

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Refund policy · MetriGo</title>
+<meta name="description" content="How cancellations and refunds work in MetriGo.">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("mg-theme")||"light"}catch(e){}</script>
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#E7E8E4">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="expect" href="#mg-ready" blocking="render">
+</head>
+<body class="no-tabs">
+<main class="app legal">
+  <header class="page-head">
+    <a class="back" href="index.html" id="back" aria-label="Back"><span data-icon="arrowL"></span></a>
+    <h1 class="title">Refund policy</h1>
+  </header>
+  <p class="updated">Last updated 16 October 2026</p>
+  <section class="card pad">
+    <h2>MetriGo is a student demo</h2>
+    <p>MetriGo is a student portfolio project, built and run by one developer (<a href="https://github.com/1anc6" rel="noopener">1anc6 on GitHub</a>). It is not a registered business and is <b>not affiliated with, endorsed by or connected to Delhi Metro Rail Corporation (DMRC)</b>.</p>
+    <p>Tickets made in MetriGo are <b>not valid for travel</b>. Timetables, train positions, crowd levels and seat occupancy are simulated. Payments run in test mode: no real money is taken, so none is refunded either. This policy describes how the app behaves.</p>
+  </section>
+  <section class="card pad">
+    <h2>Cancelling a trip</h2>
+    <ul>
+      <li>Open the trip under Trips and tap <b>Cancel trip</b> any time before the train departs.</li>
+      <li>You get the <b>full amount you paid</b> back. There is no cancellation fee.</li>
+      <li>The refund goes to your <b>Metro Card</b> straight away, whichever way you paid.</li>
+      <li>After departure a trip can't be cancelled or refunded.</li>
+    </ul>
+  </section>
+  <section class="card pad">
+    <h2>If your seats go while you pay</h2>
+    <p>Seats are held for 15 minutes while you pay. If they are taken anyway before your payment completes, no ticket is issued and:</p>
+    <ul>
+      <li>Metro Card and test-mode payments are not charged.</li>
+      <li>A live UPI, card or net banking payment would be refunded automatically to the original payment method, usually within 5–7 working days.</li>
+    </ul>
+  </section>
+  <section class="card pad">
+    <h2>Metro Card balance</h2>
+    <p>Metro Card top-ups are test payments, so the balance has no cash value and can't be withdrawn. Deleting your account removes the balance.</p>
+  </section>
+  <section class="card pad">
+    <h2>The price you see is the price you pay</h2>
+    <p>The total on the checkout screen is the final amount: base fare × time-of-day rate × seats, minus 10% when paying with the Metro Card. Nothing is added after you tap Pay.</p>
+  </section>
+  <section class="card pad">
+    <h2>Questions</h2>
+    <p>Use the topic “Refund request” when you contact us:</p>
+    <ul>
+      <li>Signed in: <a href="help.html">Help &amp; Support</a> → Send a message. Your message is stored with your account.</li>
+      <li>Not signed in: open an issue at <a href="https://github.com/1anc6/Metrigo/issues" rel="noopener">github.com/1anc6/Metrigo/issues</a>. Issues are public, so don't include personal details; ask for a private way to reach you instead.</li>
+    </ul>
+  </section>
+
+  <nav class="legal-links" aria-label="Legal">
+    <a href="privacy.html">Privacy policy</a><a href="terms.html">Terms of service</a><a href="refunds.html">Refund policy</a><a href="cookies.html">Cookie policy</a>
+  </nav>
+</main>
+
+<script src="assets/js/core.js"></script>
+<script>
+// Back goes where the reader came from (sign-in, profile, checkout), else Home
+if (history.length > 1 && document.referrer.startsWith(location.origin)) {
+  document.getElementById("back").addEventListener("click", e => { e.preventDefault(); history.back(); });
+}
+</script>
+<i id="mg-ready" hidden></i>
+</body>
+</html>
